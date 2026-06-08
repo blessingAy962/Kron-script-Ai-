@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "image": {
+      "title": "Image Asset",
+      "description": "Generated images for storyboards and thumbnails",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "image_url": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user_id", "image_url", "title", "type", "created_at"]
+    },
+    "script": {
+      "title": "Movie or video script",
+      "description": "AI-generated screenplays and YouTube video scripts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "hook": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string" },
+        "word_count": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user_id", "title", "hook", "content", "status", "word_count", "created_at"]
+    },
+    "referral": {
+      "title": "Referral Link tracker",
+      "description": "Keeps track of users referred to the platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrer_id": { "type": "string" },
+        "referred_email": { "type": "string" },
+        "referred_user_id": { "type": "string" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "referrer_id", "referred_email", "status", "created_at"]
+    },
+    "user_coins": {
+      "title": "User KRON Coins balance",
+      "description": "The KRON balance of the user to pay for video generation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "coins": { "type": "number" },
+        "is_premium": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user_id", "coins", "created_at"]
+    },
+    "video": {
+      "title": "Veo 3.1 Generated Video",
+      "description": "Generated video assets with duration and aspect ratio options",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "video_url": { "type": "string" },
+        "prompt": { "type": "string" },
+        "duration": { "type": "number" },
+        "aspect_ratio": { "type": "string" },
+        "coins_deducted": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user_id", "video_url", "prompt", "duration", "aspect_ratio", "coins_deducted", "created_at"]
+    }
+  },
+  "firestore": {
+    "/images/{imageId}": {
+      "schema": "image",
+      "description": "Public or user-specific image assets"
+    },
+    "/scripts/{scriptId}": {
+      "schema": "script",
+      "description": "User script drafts and completions"
+    },
+    "/referrals/{referralId}": {
+      "schema": "referral",
+      "description": "User referral program state"
+    },
+    "/user_coins/{userId}": {
+      "schema": "user_coins",
+      "description": "User coin details"
+    },
+    "/videos/{videoId}": {
+      "schema": "video",
+      "description": "User generated videos via Veo 3.1"
+    }
+  }
+}

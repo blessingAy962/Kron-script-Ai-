@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net - Deny all public access to the database
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives & Security Assertions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == "starbruce91@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Level 5 Dynamic Entity Schema Schematics
+    function isValidImage(data) {
+      return data.keys().hasAll(['id', 'user_id', 'image_url', 'title', 'type', 'created_at']) &&
+             data.keys().size() == 6 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.user_id is string && data.user_id.size() <= 128 &&
+             data.image_url is string && data.image_url.size() <= 2048 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.type is string && data.type.size() <= 128 &&
+             data.created_at is timestamp;
+    }
+
+    function isValidScript(data) {
+      return data.keys().hasAll(['id', 'user_id', 'title', 'hook', 'content', 'status', 'word_count', 'created_at']) &&
+             data.keys().size() == 8 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.user_id is string && data.user_id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.hook is string && data.hook.size() <= 10000 &&
+             data.content is string && data.content.size() <= 200000 &&
+             data.status is string && data.status.size() <= 64 &&
+             (data.word_count is int || data.word_count is float) &&
+             data.created_at is timestamp;
+    }
+
+    function isValidReferral(data) {
+      return data.keys().hasAll(['id', 'referrer_id', 'referred_email', 'status', 'created_at']) &&
+             data.keys().size() >= 5 && data.keys().size() <= 7 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.referrer_id is string && data.referrer_id.size() <= 128 &&
+             data.referred_email is string && data.referred_email.size() <= 256 &&
+             data.status is string && data.status.size() <= 64 &&
+             data.created_at is timestamp &&
+             (!('referred_user_id' in data) || (data.referred_user_id is string && data.referred_user_id.size() <= 128));
+    }
+
+    function isValidUserCoins(data) {
+      return data.keys().hasAll(['id', 'user_id', 'coins', 'created_at']) &&
+             data.keys().size() >= 4 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.user_id is string && data.user_id.size() <= 128 &&
+             (data.coins is int || data.coins is float) &&
+             data.created_at is timestamp &&
+             (!('is_premium' in data) || data.is_premium is bool) &&
+             (!('is_admin' in data) || data.is_admin is bool) &&
+             (!('plan' in data) || (data.plan is string && data.plan.size() <= 64)) &&
+             (!('plan_status' in data) || (data.plan_status is string && data.plan_status.size() <= 64)) &&
+             (!('last_reset_time' in data) || (data.last_reset_time is int || data.last_reset_time is float)) &&
+             (!('referral_count' in data) || (data.referral_count is int || data.referral_count is float)) &&
+             (!('referred_emails' in data) || data.referred_emails is list) &&
+             (!('license_acquired_at' in data) || data.license_acquired_at is timestamp) &&
+             (!('is_verified_creator' in data) || data.is_verified_creator is bool) &&
+             (!('bonus_2500_claimed' in data) || data.bonus_2500_claimed is bool) &&
+             (!('bonus_5000_claimed' in data) || data.bonus_5000_claimed is bool);
+    }
+
+    function isValidVideo(data) {
+      return data.keys().hasAll(['id', 'user_id', 'video_url', 'prompt', 'duration', 'aspect_ratio', 'coins_deducted', 'created_at']) &&
+             data.keys().size() == 8 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.user_id is string && data.user_id.size() <= 128 &&
+             data.video_url is string && data.video_url.size() <= 2048 &&
+             data.prompt is string && data.prompt.size() <= 5000 &&
+             (data.duration is int || data.duration is float) &&
+             data.aspect_ratio is string && data.aspect_ratio.size() <= 64 &&
+             (data.coins_deducted is int || data.coins_deducted is float) &&
+             data.created_at is timestamp;
+    }
+
+    // Individual Collection Security Rules match blocks
+
+    match /images/{imageId} {
+      allow read, delete: if isSignedIn() && (resource == null || existing().user_id == request.auth.uid);
+      allow create, update: if isSignedIn() && incoming().user_id == request.auth.uid;
+    }
+
+    match /scripts/{scriptId} {
+      allow read, delete: if isSignedIn() && (resource == null || existing().user_id == request.auth.uid);
+      allow create, update: if isSignedIn() && incoming().user_id == request.auth.uid;
+    }
+
+    match /referrals/{referralId} {
+      allow get: if isSignedIn() && isValidId(referralId) && (
+        resource == null || 
+        existing().referrer_id == request.auth.uid || 
+        ('referred_user_id' in existing() && existing().referred_user_id == request.auth.uid)
+      );
+      allow list: if isSignedIn() && (
+        resource.data.referrer_id == request.auth.uid || 
+        ('referred_user_id' in resource.data && resource.data.referred_user_id == request.auth.uid)
+      );
+      allow delete: if isAdmin() && isValidId(referralId);
+      
+      allow create: if isSignedIn() && isValidId(referralId) &&
+                        (incoming().referrer_id == request.auth.uid || ('referred_user_id' in incoming() && incoming().referred_user_id == request.auth.uid)) &&
+                        isValidReferral(incoming()) &&
+                        incoming().created_at == request.time;
+                        
+      allow update: if isSignedIn() && isValidId(referralId) &&
+                       isValidReferral(incoming()) &&
+                       incoming().created_at == existing().created_at &&
+                       (
+                         (existing().referrer_id == request.auth.uid && incoming().referrer_id == request.auth.uid) ||
+                         (
+                           'referred_user_id' in existing() && 
+                           'referred_user_id' in incoming() && 
+                           existing().referred_user_id == request.auth.uid && 
+                           incoming().referred_user_id == request.auth.uid
+                         ) ||
+                         isAdmin()
+                       );
+    }
+
+    match /user_coins/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow delete: if isAdmin();
+      
+      allow create: if isOwner(userId) &&
+                       isValidUserCoins(incoming()) &&
+                       incoming().user_id == userId &&
+                       incoming().created_at == request.time &&
+                       (incoming().get('is_admin', false) == false || request.auth.token.email == "starbruce91@gmail.com");
+                       
+      allow update: if (isOwner(userId) || isAdmin()) &&
+                       isValidUserCoins(incoming()) &&
+                       incoming().user_id == userId &&
+                       incoming().created_at == existing().created_at &&
+                       (
+                         isAdmin() ||
+                         (
+                           // Ensure regular users cannot modify administrative flag
+                           incoming().get('is_admin', false) == existing().get('is_admin', false)
+                         )
+                       );
+    }
+
+    match /videos/{videoId} {
+      allow read, delete: if isSignedIn() && (resource == null || existing().user_id == request.auth.uid);
+      allow create, update: if isSignedIn() && incoming().user_id == request.auth.uid;
+    }
+  }
+}

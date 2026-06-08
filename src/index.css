@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@350;450;550;650;750&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  :root {
+    --background: #f4f4f7;
+    --foreground: #111113;
+    --card: #ffffff;
+    --card-foreground: #111113;
+    --border: rgba(0, 0, 0, 0.1);
+    --primary: #7c3aed;
+    --primary-foreground: #ffffff;
+    --muted: #ebebef;
+    --muted-foreground: #374151;
+    --accent: #f3e8ff;
+    --accent-foreground: #6d28d9;
+    --glass-bg: rgba(255, 255, 255, 0.96);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-blur: 16px;
+  }
+
+  .dark {
+    --background: #090611;
+    --foreground: #f5f2fa;
+    --card: rgba(15, 11, 25, 0.7);
+    --card-foreground: #f5f2fa;
+    --border: rgba(168, 85, 247, 0.2);
+    --primary: #a855f7;
+    --primary-foreground: #ffffff;
+    --muted: #181329;
+    --muted-foreground: #a78bfa;
+    --accent: #2e1065;
+    --accent-foreground: #d8b4fe;
+    --glass-bg: rgba(15, 11, 25, 0.65);
+    --glass-border: rgba(168, 85, 247, 0.25);
+    --glass-blur: 20px;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    transition: background-color 0.4s ease, color 0.4s ease;
+    background-image: 
+      radial-gradient(at 10% 20%, rgba(139, 92, 246, 0.05) 0px, transparent 50%),
+      radial-gradient(at 90% 80%, rgba(216, 180, 254, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image: 
+      radial-gradient(at 10% 20%, rgba(147, 51, 234, 0.15) 0px, transparent 50%),
+      radial-gradient(at 90% 80%, rgba(107, 33, 168, 0.1) 0px, transparent 50%);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+  }
+}
+
+@layer utilities {
+  .glass-frost {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(139, 92, 246, 0.04);
+  }
+
+  .glass-card {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.06);
+  }
+
+  .glow-soft-purple {
+    filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.25));
+  }
+
+  /* Custom minimal premium scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(147, 51, 234, 0.15);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(147, 51, 234, 0.35);
+  }
+}
+
+/* ==========================================
+   Auratech Cinematic 3D Floating Engine
+   ========================================== */
+
+@keyframes auratech-drift-gentle {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(-3px, -8px, 0) rotate(0.4deg); }
+}
+
+@keyframes auratech-drift-normal {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(4px, -15px, 0) rotate(-0.8deg); }
+}
+
+@keyframes auratech-drift-intense {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(-8px, -22px, 0) rotate(1.5deg) scale(1.015); }
+}
+
+/* Base state definitions for fluid transitions */
+.cinematic-floating h1,
+.cinematic-floating h2,
+.cinematic-floating h3,
+.cinematic-floating h4,
+.cinematic-floating h5,
+.cinematic-floating h6,
+.cinematic-floating .glass-card,
+.cinematic-floating .glass-frost,
+.cinematic-floating p,
+.cinematic-floating button:not(#touch-audio-toggle):not(#header-settings-toggle-button),
+.cinematic-floating a {
+  transition: transform 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  will-change: transform;
+}
+
+/* Staggered Gentle Floating Mode Keyframes */
+.cinematic-floating[data-float-intensity="gentle"] h1 { animation: auratech-drift-gentle 8s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="gentle"] h2 { animation: auratech-drift-gentle 11s ease-in-out infinite alternate-reverse; }
+.cinematic-floating[data-float-intensity="gentle"] h3, .cinematic-floating[data-float-intensity="gentle"] h4 { animation: auratech-drift-gentle 9.5s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="gentle"] p { animation: auratech-drift-gentle 15s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="gentle"] .glass-card, .cinematic-floating[data-float-intensity="gentle"] .glass-frost { animation: auratech-drift-gentle 16s ease-in-out infinite alternate; }
+
+/* Staggered Cinematic Floating Mode Keyframes */
+.cinematic-floating[data-float-intensity="cinematic"] h1 { animation: auratech-drift-normal 9s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="cinematic"] h2 { animation: auratech-drift-normal 12s ease-in-out infinite alternate-reverse; }
+.cinematic-floating[data-float-intensity="cinematic"] h3, .cinematic-floating[data-float-intensity="cinematic"] h4 { animation: auratech-drift-normal 10.5s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="cinematic"] p { animation: auratech-drift-gentle 14s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="cinematic"] .glass-card, .cinematic-floating[data-float-intensity="cinematic"] .glass-frost { animation: auratech-drift-normal 18s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="cinematic"] a, .cinematic-floating[data-float-intensity="cinematic"] button:not(#touch-audio-toggle):not(#header-settings-toggle-button) { animation: auratech-drift-gentle 11s ease-in-out infinite alternate; }
+
+/* Staggered Orbit Kinetic Floating Mode Keyframes */
+.cinematic-floating[data-float-intensity="orbit"] h1 { animation: auratech-drift-intense 6s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="orbit"] h2 { animation: auratech-drift-intense 8.5s ease-in-out infinite alternate-reverse; }
+.cinematic-floating[data-float-intensity="orbit"] h3, .cinematic-floating[data-float-intensity="orbit"] h4 { animation: auratech-drift-intense 7.5s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="orbit"] p { animation: auratech-drift-normal 11s ease-in-out infinite alternate-reverse; }
+.cinematic-floating[data-float-intensity="orbit"] .glass-card, .cinematic-floating[data-float-intensity="orbit"] .glass-frost { animation: auratech-drift-intense 12s ease-in-out infinite alternate; }
+.cinematic-floating[data-float-intensity="orbit"] a, .cinematic-floating[data-float-intensity="orbit"] button:not(#touch-audio-toggle):not(#header-settings-toggle-button) { animation: auratech-drift-normal 8.5s ease-in-out infinite alternate; }

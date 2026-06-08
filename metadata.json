@@ -1,0 +1,6 @@
+{
+  "name": "Kron Script AI",
+  "description": "Premium minimalist workspace for KRON AI, a luxury full-stack screenplay, copy, and visual prompt studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
