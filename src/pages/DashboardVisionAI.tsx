@@ -380,9 +380,10 @@ export default function DashboardVisionAI() {
             </span>
             <h2 className="text-xl md:text-2xl font-display font-black tracking-tight uppercase text-foreground">KRON VISION AI UNDER MAINTENANCE</h2>
             <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Our neural processing farms and high-throughput upscaling nodes are currently undergoing a scheduled system upgrade. Vision super-resolution, motion-deblurring, and face-restoration engines are temporarily locked for all users.
+              Our neural processing farms and high-throughput upscaling nodes are currently undergoing system maintenance. Vision super-resolution, motion-deblurring, and face-restoration engines are temporarily locked for all users.
             </p>
           </div>
+          {/* PLANNED UPGRADES HIDDEN AS REQUESTED - NO DELETION:
           <div className="border border-border/80 rounded-2xl p-6 bg-muted/20 text-left max-w-md mx-auto space-y-4">
             <span className="block text-[10px] uppercase font-mono tracking-widest text-amber-500 font-black">⚙️ PLANNED UPGRADES</span>
             <ul className="text-xs text-muted-foreground space-y-2.5">
@@ -400,6 +401,7 @@ export default function DashboardVisionAI() {
               </li>
             </ul>
           </div>
+          */}
           <p className="text-[10px] font-mono text-muted-foreground/80 font-semibold italic">
             This module will remain locked until maintenance protocols are completely verified. We appreciate your patience.
           </p>

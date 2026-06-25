@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageSquare, X, Send, Mail, Check, AlertCircle, Sparkles, RefreshCw, ArrowUpRight, ShieldAlert } from "lucide-react";
+import { MessageSquare, X, Send, Mail, Check, AlertCircle, Sparkles, RefreshCw, ArrowUpRight, ShieldAlert, Brain } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/src/hooks/useAuth";
+import { db } from "@/src/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { safeGetItem, safeSetItem } from "@/src/lib/safeStorage";
 
 interface Message {
   id: string;
@@ -64,6 +68,74 @@ function isPromptUnsafe(text: string): boolean {
 
 export function SupportChat() {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
+  const [userPlan, setUserPlan] = useState<string>("free");
+  const [activeSupportUsageCount, setActiveSupportUsageCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) {
+      setUserPlan("free");
+      return;
+    }
+    const coinsRef = doc(db, "user_coins", user.uid);
+    const unsubscribe = onSnapshot(coinsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setUserPlan(data.plan ?? "free");
+      }
+    }, (err) => {
+      console.warn("Could not load user plan dynamically in support chat:", err);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const getSupportChatUsageInfo = () => {
+    const isPremium = user && userPlan && userPlan !== "free";
+    const limit = isPremium ? 20 : 7;
+    const timestampsKey = user 
+      ? `auratech_support_chat_timestamps_${user.uid}` 
+      : "auratech_support_chat_timestamps_anonymous";
+    
+    let savedTimestamps: number[] = [];
+    try {
+      savedTimestamps = JSON.parse(safeGetItem(timestampsKey, "[]"));
+    } catch {}
+    
+    const nowMs = Date.now();
+    const activeTimestamps = savedTimestamps.filter((t: number) => nowMs - t < 24 * 60 * 60 * 1000);
+    
+    return {
+      count: activeTimestamps.length,
+      limit,
+      remaining: Math.max(0, limit - activeTimestamps.length),
+      isLocked: activeTimestamps.length >= limit
+    };
+  };
+
+  const recordSupportChatUsage = () => {
+    const timestampsKey = user 
+      ? `auratech_support_chat_timestamps_${user.uid}` 
+      : "auratech_support_chat_timestamps_anonymous";
+    
+    let savedTimestamps: number[] = [];
+    try {
+      savedTimestamps = JSON.parse(safeGetItem(timestampsKey, "[]"));
+    } catch {}
+    
+    const nowMs = Date.now();
+    const updated = [...savedTimestamps, nowMs].filter((t: number) => nowMs - t < 24 * 60 * 60 * 1000);
+    safeSetItem(timestampsKey, JSON.stringify(updated));
+    setActiveSupportUsageCount(updated.length);
+  };
+
+  useEffect(() => {
+    setActiveSupportUsageCount(getSupportChatUsageInfo().count);
+    const interval = setInterval(() => {
+      setActiveSupportUsageCount(getSupportChatUsageInfo().count);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [user, userPlan]);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "initial",
@@ -96,6 +168,12 @@ export function SupportChat() {
   const sendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
 
+    const usage = getSupportChatUsageInfo();
+    if (usage.isLocked) {
+      toast.error(`Daily limit reached (${usage.limit} messages). Please upgrade to Premium or wait for 24-hour reset.`);
+      return;
+    }
+
     const userMsgId = Math.random().toString(36).substring(7);
     const newUserMessage: Message = {
       id: userMsgId,
@@ -107,6 +185,8 @@ export function SupportChat() {
     setMessages((prev) => [...prev, newUserMessage]);
     setInputMessage("");
     setIsLoading(true);
+
+    recordSupportChatUsage();
 
     if (isPromptUnsafe(textToSend)) {
       setTimeout(() => {
@@ -345,6 +425,17 @@ export function SupportChat() {
               </div>
             )}
 
+            {/* Daily limit tracker status */}
+            <div className="px-4 py-2 bg-purple-950/20 border-t border-purple-500/10 flex items-center justify-between shrink-0">
+              <span className="text-[10px] font-mono text-zinc-400 flex items-center gap-1">
+                <Brain className="h-3.5 w-3.5 text-purple-400" />
+                Limits: {getSupportChatUsageInfo().remaining} / {getSupportChatUsageInfo().limit} remaining today
+              </span>
+              <span className="text-[9px] font-mono text-purple-450 font-bold uppercase tracking-wider">
+                {user && userPlan !== "free" ? "PREMIUM PLAN (20 Max)" : "FREE USER (7 Max)"}
+              </span>
+            </div>
+
             {/* Bottom Form entry bar for user prompt */}
             <form
               onSubmit={handleFormSubmit}
@@ -355,14 +446,14 @@ export function SupportChat() {
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Describe your issue or ask a question..."
+                placeholder={getSupportChatUsageInfo().isLocked ? "Daily limit reached. Refreshes in 24 hours." : "Describe your issue or ask a question..."}
                 className="flex-1 bg-zinc-900/90 border border-purple-500/15 focus:border-purple-500/40 rounded-xl px-3 py-2 text-xs sm:text-[13px] text-white placeholder-zinc-500 outline-none transition-all font-sans"
-                disabled={isLoading}
+                disabled={isLoading || getSupportChatUsageInfo().isLocked}
               />
               <button
                 type="submit"
                 className="p-2 rounded-xl bg-purple-600 text-white hover:bg-purple-500 transition-all cursor-pointer disabled:opacity-50 shrink-0"
-                disabled={!inputMessage.trim() || isLoading}
+                disabled={!inputMessage.trim() || isLoading || getSupportChatUsageInfo().isLocked}
               >
                 <Send className="h-4 w-4" />
               </button>

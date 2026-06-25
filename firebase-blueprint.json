@@ -72,6 +72,21 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "user_id", "video_url", "prompt", "duration", "aspect_ratio", "coins_deducted", "created_at"]
+    },
+    "chat_thread": {
+      "title": "Chat Thread",
+      "description": "User's persistent conversation thread with KRON AI",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "messages": { "type": "array" },
+        "isPinned": { "type": "boolean" },
+        "isArchived": { "type": "boolean" }
+      },
+      "required": ["id", "user_id", "title", "createdAt", "messages"]
     }
   },
   "firestore": {
@@ -94,6 +109,10 @@
     "/videos/{videoId}": {
       "schema": "video",
       "description": "User generated videos via Veo 3.1"
+    },
+    "/user_chats/{userId}/threads/{threadId}": {
+      "schema": "chat_thread",
+      "description": "User conversation threads with KRON AI"
     }
   }
 }

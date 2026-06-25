@@ -106,6 +106,18 @@ service cloud.firestore {
              data.created_at is timestamp;
     }
 
+    function isValidChatThread(data) {
+      return data.keys().hasAll(['id', 'user_id', 'title', 'createdAt', 'messages']) &&
+             data.keys().size() >= 5 && data.keys().size() <= 7 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.user_id is string && data.user_id.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.createdAt is string && data.createdAt.size() <= 128 &&
+             data.messages is list &&
+             (!('isPinned' in data) || data.isPinned is bool) &&
+             (!('isArchived' in data) || data.isArchived is bool);
+    }
+
     // Individual Collection Security Rules match blocks
 
     match /images/{imageId} {
@@ -177,6 +189,10 @@ service cloud.firestore {
     match /videos/{videoId} {
       allow read, delete: if isSignedIn() && (resource == null || existing().user_id == request.auth.uid);
       allow create, update: if isSignedIn() && incoming().user_id == request.auth.uid;
+    }
+
+    match /user_chats/{userId}/threads/{threadId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

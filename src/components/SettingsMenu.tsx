@@ -310,11 +310,26 @@ export function SettingsMenu() {
           </div>
 
           {/* Footer Guide Infotip */}
-          <div className="mt-3.5 pt-2.5 border-t border-border/30 flex items-start gap-1.5 text-[9px] text-muted-foreground leading-snug">
-            <HelpCircle className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
-            <p>
-              Turn on <span className="font-bold text-foreground">Floating Text</span> to see ideas float across your screen in the background.
-            </p>
+          <div className="mt-3.5 pt-2.5 border-t border-border/30 space-y-2 text-[9px] text-muted-foreground leading-snug">
+            <div className="flex items-start gap-1.5">
+              <HelpCircle className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
+              <p>
+                Turn on <span className="font-bold text-foreground">Floating Text</span> to see ideas float across your screen in the background.
+              </p>
+            </div>
+            {userPlan !== "free" && (
+              <div className="pt-2 border-t border-border/10 flex items-center justify-between">
+                <span className="font-mono text-[8px] uppercase tracking-wide">License: <b>{userPlan.replace("_", " ")}</b></span>
+                <a 
+                  href="https://whop.com/orders/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-purple-500 hover:underline font-mono text-[8px] uppercase font-bold cursor-pointer"
+                >
+                  Manage Plan ↗
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

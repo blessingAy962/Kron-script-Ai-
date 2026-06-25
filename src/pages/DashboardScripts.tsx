@@ -5,7 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { toast } from "sonner";
 import { db } from "@/src/lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "@/src/lib/firebase";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, onSnapshot, setDoc } from "@/src/lib/firebase";
 import { useAuth } from "@/src/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +30,52 @@ export default function DashboardScripts() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewScript, setPreviewScript] = useState<Script | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userPlan, setUserPlan] = useState<string>("free");
+
+  // Sync user plan and handle successful checkout callback
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Check for success parameters from Whop checkout redirect
+    const params = new URLSearchParams(window.location.search);
+    const isSuccess = params.get("success") === "true" || 
+                      params.get("checkout") === "success" || 
+                      params.get("status") === "success" ||
+                      params.get("whop") === "success";
+
+    if (isSuccess) {
+      const activateUserSubscription = async () => {
+        try {
+          const userRef = doc(db, "user_coins", user.uid);
+          await setDoc(userRef, {
+            plan: "creator",
+            plan_status: "active",
+            coins: 25000,
+            license_acquired_at: new Date()
+          }, { merge: true });
+
+          toast.success("🎉 Whop payment verified successfully! Your Creator License has been activated and the Script Generator is now fully unlocked.");
+          
+          // Clean the query parameter from address bar
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        } catch (err) {
+          console.error("Failed to auto-activate Whop plan in scripts view:", err);
+        }
+      };
+      activateUserSubscription();
+    }
+
+    // 2. Real-time subscription state query listener
+    const coinsRef = doc(db, "user_coins", user.uid);
+    const unsub = onSnapshot(coinsRef, (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setUserPlan(d.plan ?? "free");
+      }
+    });
+    return () => unsub();
+  }, [user]);
 
   // Load scripts from Firestore
   useEffect(() => {
@@ -67,7 +113,7 @@ export default function DashboardScripts() {
     setIsGenerating(true);
 
     try {
-      const resp = await fetch("/.netlify/functions/generate-script", {
+      const resp = await fetch("/api/generate-script", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -163,58 +209,82 @@ export default function DashboardScripts() {
 
       {/* Generator Canvas */}
       {showGenerator && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="bg-card border border-foreground rounded-xl p-6 shadow-[3px_3px_0px_0px_rgba(51,37,29,1)]"
-        >
-          <h2 className="font-display font-semibold mb-4 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Write Screenplay Model
-          </h2>
-          <div className="space-y-4">
-            <div className="text-left space-y-1.5">
-              <label className="text-sm font-semibold text-foreground font-display">Video Topic or Campaign Idea</label>
-              <Input
-                placeholder="e.g., Why social media is breaking human concentration in 2026..."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                disabled={isGenerating}
-                onKeyDown={(e) => e.key === "Enter" && !isGenerating && generateScript()}
-              />
+        userPlan === "free" ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-card border-2 border-dashed border-border rounded-xl p-8 shadow-lg text-center flex flex-col items-center justify-center space-y-4 max-w-xl mx-auto my-6"
+          >
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl">
+              🔒
             </div>
-            <div className="grid sm:grid-cols-3 gap-3">
-              {["Story-driven", "Listicle", "Educational"].map((style) => (
-                <button
-                  key={style}
-                  onClick={() => setSelectedStyle(style)}
-                  disabled={isGenerating}
-                  className={`text-sm p-3 rounded-lg border transition-all cursor-pointer font-display font-bold ${
-                    selectedStyle === style
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border bg-white text-muted-foreground hover:border-primary/50"
-                  }`}
-                >
-                  {style}
-                </button>
-              ))}
-            </div>
-
-            {isGenerating ? (
-              <div className="space-y-3 p-4 bg-secondary/30 rounded-xl border border-border text-center">
-                <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto mb-2" />
-                <span className="text-sm text-primary font-display font-semibold">Engine compiling your viral screenplay... Please hold.</span>
-              </div>
-            ) : (
-              <Button className="w-full font-display glow-primary cursor-pointer" disabled={!topic.trim()} onClick={generateScript}>
-                <Sparkles className="mr-2 h-4 w-4" /> Trigger Screenplay Write
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground text-center font-body">
-              This triggers a high-retention cinematic script outline with detailed B-roll recommendations.
+            <h3 className="font-display font-black text-lg uppercase tracking-tight text-foreground">
+              Script Generator Locked
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-sm leading-relaxed font-body">
+              Unlock our elite screenplay write engine. Acquire an active Creator License to generate unlimited high-retention screenplays, story outlines, and visual scripts.
             </p>
-          </div>
-        </motion.div>
+            <Button 
+              className="glow-primary font-display uppercase tracking-wider text-xs px-6 py-2.5 cursor-pointer" 
+              onClick={() => navigate("/dashboard/pricing")}
+            >
+              🚀 Upgrade to Creator
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="bg-card border border-foreground rounded-xl p-6 shadow-[3px_3px_0px_0px_rgba(51,37,29,1)]"
+          >
+            <h2 className="font-display font-semibold mb-4 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Write Screenplay Model
+            </h2>
+            <div className="space-y-4">
+              <div className="text-left space-y-1.5">
+                <label className="text-sm font-semibold text-foreground font-display">Video Topic or Campaign Idea</label>
+                <Input
+                  placeholder="e.g., Why social media is breaking human concentration in 2026..."
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={isGenerating}
+                  onKeyDown={(e) => e.key === "Enter" && !isGenerating && generateScript()}
+                />
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {["Story-driven", "Listicle", "Educational"].map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setSelectedStyle(style)}
+                    disabled={isGenerating}
+                    className={`text-sm p-3 rounded-lg border transition-all cursor-pointer font-display font-bold ${
+                      selectedStyle === style
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-white text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
+
+              {isGenerating ? (
+                <div className="space-y-3 p-4 bg-secondary/30 rounded-xl border border-border text-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto mb-2" />
+                  <span className="text-sm text-primary font-display font-semibold">Engine compiling your viral screenplay... Please hold.</span>
+                </div>
+              ) : (
+                <Button className="w-full font-display glow-primary cursor-pointer" disabled={!topic.trim()} onClick={generateScript}>
+                  <Sparkles className="mr-2 h-4 w-4" /> Trigger Screenplay Write
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground text-center font-body">
+                This triggers a high-retention cinematic script outline with detailed B-roll recommendations.
+              </p>
+            </div>
+          </motion.div>
+        )
       )}
 
       {/* Preview Dialog */}

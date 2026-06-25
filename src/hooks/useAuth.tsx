@@ -18,6 +18,7 @@ import {
   serverTimestamp 
 } from "@/src/lib/firebase";
 import { toast } from "sonner";
+import { safeGetItem } from "@/src/lib/safeStorage";
 
 export interface CustomUser {
   id: string;
@@ -78,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
         // Capture url-based referral at user signup time
-        const storedReferrerId = localStorage.getItem("kron_referrer_id");
+        const storedReferrerId = safeGetItem("kron_referrer_id");
         if (storedReferrerId && storedReferrerId !== fUser.uid) {
           try {
             const referrerRef = doc(db, "user_coins", storedReferrerId);
@@ -122,6 +123,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    if (!auth) {
+      console.warn("Firebase auth not initialized or blocked in iframe sandbox.");
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         const compatUser: CustomUser = {
@@ -145,6 +151,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      toast.error("Auth security block detected in preview iframe. Please open the application in a new tab to authenticate.");
+      return;
+    }
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     if (result.user) {
@@ -153,21 +163,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
+    if (!auth) {
+      toast.error("Auth security block detected in preview iframe. Please open the application in a new tab to authenticate.");
+      return;
+    }
     await signInWithEmailAndPassword(auth, email, pass);
     toast.success("Welcome back! Sign-in successful.");
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
+    if (!auth) {
+      toast.error("Auth security block detected in preview iframe. Please open the application in a new tab to authenticate.");
+      return;
+    }
     await createUserWithEmailAndPassword(auth, email, pass);
     toast.success("Account created successfully! Welcome & Sign-in successful.");
   };
 
   const sendPasswordReset = async (email: string) => {
+    if (!auth) {
+      toast.error("Auth security block detected in preview iframe. Please open the application in a new tab to authenticate.");
+      return;
+    }
     await sendPasswordResetEmail(auth, email);
     toast.success("Password reset email sent! Check your inbox.");
   };
 
   const signOut = async () => {
+    if (!auth) {
+      setUser(null);
+      setSession(null);
+      toast.success("Signed out successfully (offline mode)");
+      return;
+    }
     try {
       await dbSignOut(auth);
     } catch (e) {

@@ -8,7 +8,7 @@ import Auth from "./pages/Auth";
 import Copyright from "./pages/Copyright";
 import NotFound from "./pages/NotFound";
 import { TouchPhysicsCanvas } from "./components/TouchPhysicsCanvas";
-import { safeGetItem } from "./lib/safeStorage";
+import { safeGetItem, safeSetItem } from "./lib/safeStorage";
 
 // Full-Stack Custom Glass Theme Dashboard Components
 import DashboardLayout from "./pages/DashboardLayout";
@@ -26,7 +26,7 @@ export default function App() {
     const queryParams = new URLSearchParams(window.location.search);
     const refId = queryParams.get("ref") || queryParams.get("referrer");
     if (refId) {
-      localStorage.setItem("kron_referrer_id", refId);
+      safeSetItem("kron_referrer_id", refId);
       setTimeout(() => {
         toast.success("Affiliate Partner Registered", {
           description: "Complete your account registration to participate in this exclusive Master Class offer.",

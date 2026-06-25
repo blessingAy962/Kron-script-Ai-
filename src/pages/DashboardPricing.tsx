@@ -98,13 +98,6 @@ export default function DashboardPricing() {
   const [currency, setCurrency] = useState<CurrencyConfig>({ code: "USD", symbol: "$", rate: 1.0 });
   const [detectingLocation, setDetectingLocation] = useState(true);
 
-  // checkout Lemon Squeezy portal states
-  const [checkoutPlan, setCheckoutPlan] = useState<PlanSchema | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [emailInput, setEmailInput] = useState("");
-  const [voucherKey, setVoucherKey] = useState("");
-
   // Dynamically listen to remaining balance
   useEffect(() => {
     if (!user) return;
@@ -170,16 +163,8 @@ export default function DashboardPricing() {
       return;
     }
 
-    // Whop Checkout Links mapping
-    const whopLinks: Record<string, string> = {
-      starter: "https://whop.com/checkout/kron-script-ai-starter",
-      creator: "https://whop.com/checkout/kron-script-ai-creator",
-      pro_creator: "https://whop.com/checkout/kron-script-ai-pro"
-    };
-
-    const baseUrl = whopLinks[plan.id] || "https://whop.com/checkout/kron-script-ai-starter";
-    // Attach user.uid as state & passthrough & metadata JSON so Whop reports it back to our webhooks
-    const checkoutUrl = `${baseUrl}?state=${user.uid}&passthrough=${user.uid}&metadata=${encodeURIComponent(JSON.stringify({ userId: user.uid }))}`;
+    const whopPlanId = plan.id === "pro_creator" ? "pro-creator" : plan.id;
+    const checkoutUrl = `https://whop.com/auratech-9e22/kron-script-ai?plan=${whopPlanId}&uid=${user.uid}`;
 
     toast.info(`Redirecting securely to Whop checkout under ${plan.title}...`, {
       duration: 3500
@@ -188,45 +173,6 @@ export default function DashboardPricing() {
     setTimeout(() => {
       window.open(checkoutUrl, "_blank");
     }, 1000);
-  };
-
-  const triggerVoucherRedeem = (plan: PlanSchema) => {
-    setEmailInput(user?.email || "");
-    setCheckoutPlan(plan);
-  };
-
-  // Real Production Whop Sandbox / Voucher Code Redeemer
-  const handleCheckoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkoutPlan || !user) return;
-    
-    setIsProcessing(true);
-    toast.info("Verifying voucher authenticity via validation nodes...");
-
-    try {
-      // Secure processing delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const userRef = doc(db, "user_coins", user.uid);
-      const snap = await getDoc(userRef);
-      const currentCoins = snap.exists() ? (snap.data().coins ?? 150) : 150;
-      const finalCoins = currentCoins + checkoutPlan.coins;
-
-      // Update Firestore user plans metrics directly
-      await setDoc(userRef, {
-        coins: finalCoins,
-        plan: checkoutPlan.id,
-        plan_status: "active",
-        license_acquired_at: new Date()
-      }, { merge: true });
-
-      toast.success(`🎉 Voucher upgrade confirmed! Acquired ${checkoutPlan.coins.toLocaleString()} KRON Credits under the ${checkoutPlan.title}.`);
-      setCheckoutPlan(null);
-    } catch (err: any) {
-      toast.error("Voucher activation node returned verification error. Please wait and dry run again.");
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   // Convert USD cost dynamic to local balance
@@ -331,14 +277,6 @@ export default function DashboardPricing() {
                 >
                   {isCurrentPlan ? "Active License" : `Acquire ${plan.title}`}
                 </button>
-                {!isCurrentPlan && (
-                  <button
-                    onClick={() => triggerVoucherRedeem(plan)}
-                    className="w-full text-center text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer block uppercase font-mono tracking-wider"
-                  >
-                    Or Redeem Voucher Code
-                  </button>
-                )}
               </div>
 
             </motion.div>
@@ -354,117 +292,6 @@ export default function DashboardPricing() {
         </div>
         <span className="font-mono text-right"><b>1 USD = {currency.rate} {currency.code}</b></span>
       </div>
-
-      {/* Interactive Simulated Lemon Squeezy Portal Layer */}
-      {checkoutPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCheckoutPlan(null)} />
-          
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative z-50 w-full max-w-md rounded-3xl border border-[#d3fc7e]/30 bg-[#121c08] p-6 text-white shadow-2xl text-left font-sans flex flex-col gap-5 border-l-4"
-          >
-            {/* Lemon Squeezy Custom Header */}
-            <div className="flex items-center justify-between border-b border-[#30481c] pb-3">
-              <div className="flex items-center gap-2">
-                {/* Visual pastel green Lemon logo circle */}
-                <div className="h-7 w-7 rounded-full bg-[#bdfa5c] flex items-center justify-center text-black font-extrabold text-[12px] font-mono select-none">
-                  🍋
-                </div>
-                <div>
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-200">Lemon Squeezy Checkout</h3>
-                  <p className="text-[9px] font-mono text-emerald-400/80">Secured with SHA-256 high level verification</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setCheckoutPlan(null)} 
-                className="text-slate-400 hover:text-white transition-all cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Price Description block */}
-            <div className="bg-[#1c300f] border border-[#2d4b18] p-4 rounded-2xl text-xs space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-300 font-bold uppercase text-[9px] tracking-wider block">Acquiring License</span>
-                <span className="px-2 py-0.5 bg-[#bdfa5c]/10 text-[#bdfa5c] border border-[#bdfa5c]/25 rounded text-[8px] font-mono uppercase font-black">
-                  License Pack
-                </span>
-              </div>
-              <p className="font-display font-extrabold text-sm text-[#bdfa5c]">{checkoutPlan.title}</p>
-              
-              <div className="flex justify-between items-center text-slate-200 pt-2 border-t border-[#2a4518]/60 text-[11px] font-mono">
-                <span>Charge amount:</span>
-                <span className="font-bold text-white text-xs">{formatLocalPrice(checkoutPlan.usdPrice)}</span>
-              </div>
-            </div>
-
-            {/* Interactive Form */}
-            <form onSubmit={handleCheckoutSubmit} className="space-y-4 text-xs font-sans">
-              
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-slate-300 uppercase tracking-widest block font-bold">Checkout Email</label>
-                <input 
-                  type="email" 
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  className="w-full bg-[#0b1204] border border-[#2a4315] p-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-[#bdfa5c] font-sans"
-                  placeholder="name@email.com"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-slate-300 uppercase tracking-widest block font-bold">Credit Card Encryption Standard</label>
-                <div className="relative flex items-center bg-[#0b1204] border border-[#2a4315] p-2.5 rounded-xl focus-within:border-[#bdfa5c]">
-                  <CreditCard className="h-4 w-4 text-slate-400 absolute left-3 shrink-0" />
-                  <input 
-                    type="text" 
-                    placeholder="4000 1234 5678 9010"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                    className="w-full bg-transparent border-none outline-none pl-7 text-xs text-white font-mono focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-slate-300 uppercase tracking-widest block font-bold">Voucher / Invoice License Key (Optional)</label>
-                <input 
-                  type="text" 
-                  placeholder="LS-KRON-XXXX-XXXX"
-                  value={voucherKey}
-                  onChange={(e) => setVoucherKey(e.target.value)}
-                  className="w-full bg-[#0b1204] border border-[#2a4315] p-2.5 rounded-xl text-xs text-white uppercase focus:outline-none focus:border-[#bdfa5c] font-mono"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="w-full py-3.5 bg-[#bdfa5c] hover:opacity-95 text-black font-display text-xs tracking-widest font-black uppercase rounded-2xl cursor-pointer shadow-lg transition-all flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Authorizing Order via Lemon Squeezy...
-                    </>
-                  ) : (
-                    <>
-                      <Wallet className="h-4 w-4" /> Secure Order Confirmation
-                    </>
-                  )}
-                </button>
-              </div>
-
-            </form>
-          </motion.div>
-        </div>
-      )}
 
     </div>
   );

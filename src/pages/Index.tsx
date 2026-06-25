@@ -8,8 +8,8 @@ import { Header } from "@/src/components/Header";
 import { PricingSection } from "@/src/components/PricingSection";
 import { Footer } from "@/src/components/Footer";
 import { safeGetItem, safeSetItem } from "@/src/lib/safeStorage";
-import { KronLogo } from "@/src/components/KronLogo";
 import { HeroPromoGrid } from "@/src/components/HeroPromoGrid";
+import { toast } from "sonner";
 import { 
   Sparkles, 
   Terminal, 
@@ -36,7 +36,12 @@ import {
   Fingerprint,
   Eye,
   Lock,
-  Flame
+  Flame,
+  MessageSquare,
+  ShieldCheck,
+  Sliders,
+  Maximize2,
+  PenTool
 } from "lucide-react";
 
 // Platform highlights for the prompt architecture
@@ -880,6 +885,18 @@ function FaqAccordion() {
 export default function Index() {
   const { user } = useAuth();
   const [loadingComplete, setLoadingComplete] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState<number | null>(null);
+
+  const handleTemplateClick = (id: number) => {
+    toast.info("Log in to view the prompt", {
+      id: `prompt-login-${id}`,
+      duration: 2000
+    });
+    setShowLoginPrompt(id);
+    setTimeout(() => {
+      setShowLoginPrompt(old => old === id ? null : old);
+    }, 2000);
+  };
 
   return (
     <AnimatePresence mode="wait">
@@ -1001,68 +1018,267 @@ export default function Index() {
             </div>
           </motion.div>
 
-          {/* Big 3D Floating and Spinning KRON SCRIPT Logo */}
+          {/* Official Trailer Video Embed */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1.2, delay: 0.6 }}
-            className="pt-8 md:pt-16 pb-2 flex flex-col items-center justify-center relative w-full"
-            id="spinning-3d-kron-logo-viewport"
+            className="pt-16 md:pt-28 pb-16 flex flex-col items-center justify-center relative w-full px-4"
           >
             {/* Ambient Background Aura */}
-            <div className="absolute w-[350px] sm:w-[480px] h-[350px] sm:h-[480px] rounded-full bg-gradient-to-tr from-purple-500/10 via-indigo-500/10 to-transparent blur-[80px] pointer-events-none -translate-y-4" />
+            <div className="absolute w-[350px] sm:w-[600px] h-[350px] sm:h-[400px] rounded-full bg-gradient-to-tr from-purple-500/10 via-indigo-500/10 to-transparent blur-[80px] pointer-events-none" />
             
-            {/* Realistic 3D Platform/Viewport */}
-            <div className="relative [perspective:1200px] w-64 h-64 flex items-center justify-center">
-              <motion.div
-                animate={{
-                  rotateY: [0, 360],
-                  y: [-12, 12, -12],
-                }}
-                transition={{
-                  rotateY: { duration: 15, ease: "linear", repeat: Infinity },
-                  y: { duration: 6, ease: "easeInOut", repeat: Infinity },
-                }}
-                className="w-48 h-48 flex items-center justify-center relative [transform-style:preserve-3d] cursor-grab active:cursor-grabbing"
-              >
-                {/* Embedded Glassmorphic Card housing the Kron Logo Symbol */}
-                <div 
-                  className="absolute inset-0 flex items-center justify-center bg-zinc-950/40 dark:bg-zinc-900/30 backdrop-blur-xl rounded-[2.8rem] border border-white/10 dark:border-white/5 shadow-[0_25px_60px_rgba(124,58,237,0.18)] [backface-visibility:visible]"
-                  style={{ transform: "translateZ(0)" }}
-                >
-                  <KronLogo variant="symbol" size="xxl" glow={true} />
-                </div>
-                
-                {/* 3D Depth Layer 1 (Slightly smaller offset shadow/glow card) */}
-                <div 
-                  className="absolute inset-4 bg-gradient-to-tr from-purple-500/20 to-indigo-500/10 rounded-[2.2rem] filter blur-md pointer-events-none"
-                  style={{ transform: "translateZ(-25px)" }}
-                />
-
-                {/* 3D Depth Layer 2 (Deep ambient violet light block) */}
-                <div 
-                  className="absolute w-20 h-20 bg-primary/40 rounded-full filter blur-xl pointer-events-none animate-pulse"
-                  style={{ transform: "translateZ(-40px)" }}
-                />
-              </motion.div>
+            {/* Video Container */}
+            <div className="relative w-full max-w-5xl aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-[0_25px_80px_rgba(124,58,237,0.15)] z-10 bg-zinc-950/50 backdrop-blur-sm">
+              <iframe 
+                className="absolute inset-0 w-full h-full"
+                src="https://www.youtube.com/embed/bQfKVFKQrhI?si=xpANK5zrD1xpiz4k" 
+                title="KRON SCRIPT AI Official Trailer" 
+                frameBorder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                referrerPolicy="strict-origin-when-cross-origin" 
+                allowFullScreen
+              ></iframe>
             </div>
 
-            {/* Luxurious floating shadow floor */}
-            <motion.div
-              animate={{
-                scale: [0.8, 1.1, 0.8],
-                opacity: [0.25, 0.5, 0.25],
-              }}
-              transition={{
-                duration: 6,
-                ease: "easeInOut",
-                repeat: Infinity,
-              }}
-              className="w-48 h-5 bg-gradient-to-r from-purple-600/20 to-indigo-600/10 rounded-full filter blur-lg mt-8 pointer-events-none"
-            />
-
             {/* Showcase collage grid of core platforms */}
-            <HeroPromoGrid />
+            <div className="mt-24 md:mt-32 w-full flex justify-center">
+              <HeroPromoGrid />
+            </div>
+
+            {/* 2x2 Aspect 9:16 Template Placeholders (realtouch.app reference style) */}
+            <div className="mt-32 md:mt-40 w-full max-w-5xl mx-auto space-y-10 px-4">
+              <div className="text-center space-y-3 max-w-2xl mx-auto">
+                <span className="text-[10px] uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 text-purple-400 px-3 py-1 rounded-full font-bold">
+                  KRON STUDIO
+                </span>
+                <h3 className="text-2xl md:text-3.5xl font-display font-black tracking-tight uppercase">
+                  TEMPLATES
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+                  Premium high-fidelity vertical aesthetics. Click on any template to view its underlying creative parameters and prompts.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative z-10">
+                {/* Placeholder 1 (First Real Image) */}
+                <div 
+                  onClick={() => handleTemplateClick(1)}
+                  className="relative aspect-[9/16] bg-zinc-950/40 border border-white/5 hover:border-purple-500/30 transition-all rounded-[1.5rem] overflow-hidden flex flex-col justify-between p-4 group shadow-lg shadow-black/30 cursor-pointer"
+                >
+                  <img 
+                    src="https://lh3.googleusercontent.com/d/1LsXjbA1rJ35xiZNyMyIjTLQ4mwk6QaSh" 
+                    alt="Template style portrait" 
+                    className="absolute inset-0 w-full h-full object-cover rounded-[1.5rem] z-0 transition-transform duration-500 group-hover:scale-105" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-10" />
+                  
+                  {/* Subtle inner dashed frame */}
+                  <div className="absolute inset-2 border border-dashed border-zinc-800/60 group-hover:border-purple-500/20 rounded-[1.2rem] pointer-events-none transition-colors duration-300 z-10" />
+
+                  {/* Centered Graphic Icon - hidden or minimized on active images unless hovered */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-black/60 border border-purple-500/30 flex items-center justify-center backdrop-blur-md">
+                      <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Bottom Text Reference Style */}
+                  <div className="relative z-20 w-full mt-auto">
+                    <div className="bg-black/60 border border-white/5 rounded-xl p-2 backdrop-blur-md text-center text-[8px] text-zinc-300 font-mono">
+                      CLICK FOR PROMPT
+                    </div>
+                  </div>
+
+                  {/* Disappear / Reappear Login overlay inside the card */}
+                  <AnimatePresence>
+                    {showLoginPrompt === 1 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/90 z-30 flex flex-col items-center justify-center p-3 text-center rounded-[1.5rem]"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, y: 5 }}
+                          animate={{ scale: 1, y: 0 }}
+                          exit={{ scale: 0.9, y: 5 }}
+                          className="space-y-2"
+                        >
+                          <Lock className="h-4 w-4 text-purple-400 mx-auto" />
+                          <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-purple-400">RESTRICTED</p>
+                          <p className="text-[10px] text-zinc-300 font-sans font-medium">Log in to view the prompt</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Placeholder 2 */}
+                <div 
+                  onClick={() => handleTemplateClick(2)}
+                  className="relative aspect-[9/16] bg-zinc-950/40 border border-white/5 hover:border-purple-500/30 transition-all rounded-[1.5rem] overflow-hidden flex flex-col justify-between p-4 group shadow-lg shadow-black/30 cursor-pointer"
+                >
+                  <img 
+                    src="https://lh3.googleusercontent.com/d/1t0x8I2-7JLXXIz3iGAuPZJhFt8D9AniT" 
+                    alt="Template style portrait 2" 
+                    className="absolute inset-0 w-full h-full object-cover rounded-[1.5rem] z-0 transition-transform duration-500 group-hover:scale-105" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-10" />
+                  
+                  {/* Subtle inner dashed frame */}
+                  <div className="absolute inset-2 border border-dashed border-zinc-800/60 group-hover:border-purple-500/20 rounded-[1.2rem] pointer-events-none transition-colors duration-300 z-10" />
+
+                  {/* Centered Graphic Icon - hidden or minimized on active images unless hovered */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-black/60 border border-purple-500/30 flex items-center justify-center backdrop-blur-md">
+                      <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Bottom Text Reference Style */}
+                  <div className="relative z-20 w-full mt-auto">
+                    <div className="bg-black/60 border border-white/5 rounded-xl p-2 backdrop-blur-md text-center text-[8px] text-zinc-300 font-mono">
+                      CLICK FOR PROMPT
+                    </div>
+                  </div>
+
+                  {/* Disappear / Reappear Login overlay inside the card */}
+                  <AnimatePresence>
+                    {showLoginPrompt === 2 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/90 z-30 flex flex-col items-center justify-center p-3 text-center rounded-[1.5rem]"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, y: 5 }}
+                          animate={{ scale: 1, y: 0 }}
+                          exit={{ scale: 0.9, y: 5 }}
+                          className="space-y-2"
+                        >
+                          <Lock className="h-4 w-4 text-purple-400 mx-auto" />
+                          <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-purple-400">RESTRICTED</p>
+                          <p className="text-[10px] text-zinc-300 font-sans font-medium">Log in to view the prompt</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Placeholder 3 */}
+                <div 
+                  onClick={() => handleTemplateClick(3)}
+                  className="relative aspect-[9/16] bg-zinc-950/40 border border-white/5 hover:border-purple-500/30 transition-all rounded-[1.5rem] overflow-hidden flex flex-col justify-between p-4 group shadow-lg shadow-black/30 cursor-pointer"
+                >
+                  <img 
+                    src="https://lh3.googleusercontent.com/d/1J8bxFMaOYaXBrWOSZxSRA8hVDOzgoiT8" 
+                    alt="Template style portrait 3" 
+                    className="absolute inset-0 w-full h-full object-cover rounded-[1.5rem] z-0 transition-transform duration-500 group-hover:scale-105" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-10" />
+                  
+                  {/* Subtle inner dashed frame */}
+                  <div className="absolute inset-2 border border-dashed border-zinc-800/60 group-hover:border-purple-500/20 rounded-[1.2rem] pointer-events-none transition-colors duration-300 z-10" />
+
+                  {/* Centered Graphic Icon - hidden or minimized on active images unless hovered */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-black/60 border border-purple-500/30 flex items-center justify-center backdrop-blur-md">
+                      <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Bottom Text Reference Style */}
+                  <div className="relative z-20 w-full mt-auto">
+                    <div className="bg-black/60 border border-white/5 rounded-xl p-2 backdrop-blur-md text-center text-[8px] text-zinc-300 font-mono">
+                      CLICK FOR PROMPT
+                    </div>
+                  </div>
+
+                  {/* Disappear / Reappear Login overlay inside the card */}
+                  <AnimatePresence>
+                    {showLoginPrompt === 3 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/90 z-30 flex flex-col items-center justify-center p-3 text-center rounded-[1.5rem]"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, y: 5 }}
+                          animate={{ scale: 1, y: 0 }}
+                          exit={{ scale: 0.9, y: 5 }}
+                          className="space-y-2"
+                        >
+                          <Lock className="h-4 w-4 text-purple-400 mx-auto" />
+                          <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-purple-400">RESTRICTED</p>
+                          <p className="text-[10px] text-zinc-300 font-sans font-medium">Log in to view the prompt</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Placeholder 4 */}
+                <div 
+                  onClick={() => handleTemplateClick(4)}
+                  className="relative aspect-[9/16] bg-zinc-950/40 border border-white/5 hover:border-purple-500/30 transition-all rounded-[1.5rem] overflow-hidden flex flex-col justify-between p-4 group shadow-lg shadow-black/30 cursor-pointer"
+                >
+                  <img 
+                    src="https://lh3.googleusercontent.com/d/1ce5RJ5-Q8FQHhXChzx6whaDv73O_0i-T" 
+                    alt="Template style portrait 4" 
+                    className="absolute inset-0 w-full h-full object-cover rounded-[1.5rem] z-0 transition-transform duration-500 group-hover:scale-105" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none z-10" />
+                  
+                  {/* Subtle inner dashed frame */}
+                  <div className="absolute inset-2 border border-dashed border-zinc-800/60 group-hover:border-purple-500/20 rounded-[1.2rem] pointer-events-none transition-colors duration-300 z-10" />
+
+                  {/* Centered Graphic Icon - hidden or minimized on active images unless hovered */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-black/60 border border-purple-500/30 flex items-center justify-center backdrop-blur-md">
+                      <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Bottom Text Reference Style */}
+                  <div className="relative z-20 w-full mt-auto">
+                    <div className="bg-black/60 border border-white/5 rounded-xl p-2 backdrop-blur-md text-center text-[8px] text-zinc-300 font-mono">
+                      CLICK FOR PROMPT
+                    </div>
+                  </div>
+
+                  {/* Disappear / Reappear Login overlay inside the card */}
+                  <AnimatePresence>
+                    {showLoginPrompt === 4 && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/90 z-30 flex flex-col items-center justify-center p-3 text-center rounded-[1.5rem]"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, y: 5 }}
+                          animate={{ scale: 1, y: 0 }}
+                          exit={{ scale: 0.9, y: 5 }}
+                          className="space-y-2"
+                        >
+                          <Lock className="h-4 w-4 text-purple-400 mx-auto" />
+                          <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-purple-400">RESTRICTED</p>
+                          <p className="text-[10px] text-zinc-300 font-sans font-medium">Log in to view the prompt</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+            </div>
           </motion.div>
 
         </div>
@@ -1094,10 +1310,10 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center text-primary">
-                <Sparkles className="h-5 w-5" />
+                <PenTool className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Prompt Maker</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Prompt Studio</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
                   Transform rough drafts, photos, or reference clips into exquisite, highly optimized prompts. Access perfectly formatted styles and configurations built for Midjourney, Veo, Sora, and Kling AI.
                 </p>
@@ -1114,10 +1330,10 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                <Film className="h-5 w-5" />
+                <Clapperboard className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Movie Script Writer</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Movie Script Architect</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
                   Plan multi-act cinematic screenplays, epic dialogues, and detailed voiceover timings up to 10,000 words. Completely styled block by block with copy-ready formatting guides.
                 </p>
@@ -1134,10 +1350,10 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-2xl bg-purple-500/10 border border-purple-500/15 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                <TrendingUp className="h-5 w-5" />
+                <Sliders className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Thumbnail Vision Engine</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Thumbnail Analysis Console</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
                   Check if your video cover is eye-catching. Analyze colors, focus points, layout contrast, and text readability to stand out in viewer feeds.
                 </p>
@@ -1154,12 +1370,12 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <Bot className="h-5 w-5" />
+                <MessageSquare className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Kron AI Chat Companion</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Production Dialect Companion</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
-                  Unlock our proprietary creator-aligned chat engine. Kron AI delivers custom script outlines, storyboard suggestions, character formatting, and active script feedback synced directly with your creative profile.
+                  Unlock our proprietary creator-aligned chat engine. Get custom script outlines, storyboard suggestions, character formatting, and active script feedback synced directly with your creative profile.
                 </p>
               </div>
               <div className="pt-2 border-t border-dashed border-border/40 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
@@ -1174,16 +1390,16 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-2xl bg-rose-500/10 border border-rose-500/15 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                <Fingerprint className="h-5 w-5" />
+                <ShieldCheck className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">AI Deepfake Inspector</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Media Integrity Authenticator</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
-                  Check if any video or audio is AI-generated. Instantly scan faces, voices, and clip edits to detect digital clones or synthetic changes.
+                  Check if any video or audio is organic or synthetically generated. Instantly scan faces, voices, and clip edits to detect digital clones or synthetic changes.
                 </p>
               </div>
               <div className="pt-2 border-t border-dashed border-border/40 text-[10px] font-mono text-rose-600 dark:text-rose-400 font-bold">
-                INTEGRITY: AI DETECTION & RISK SCORES
+                INTEGRITY: DETECTION & RISK SCORES
               </div>
             </motion.div>
 
@@ -1194,10 +1410,10 @@ export default function Index() {
               className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
             >
               <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <Eye className="h-5 w-5" />
+                <Maximize2 className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Kron Vision AI</h3>
+                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Ultra-HD Resolution Scaler</h3>
                 <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
                   Enhance your video frames and image assets to pristine 2K, 4K, and 8K visual resolutions. Instantly upgrade detail levels, eliminate pixelation, and optimize clarity for your screens.
                 </p>

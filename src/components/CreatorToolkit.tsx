@@ -73,6 +73,14 @@ export default function CreatorToolkit() {
   const [activeTab, setActiveTab] = useState<"prompter" | "scriptwriter" | "thumbnail" | "video" | "captions" | "detector">("prompter");
   const [loading, setLoading] = useState(false);
   const [copiedText, setCopiedText] = useState("");
+  const [kron1Copied, setKron1Copied] = useState(false);
+  const [kron2Copied, setKron2Copied] = useState(false);
+  const [kron3Copied, setKron3Copied] = useState(false);
+  const [kron4Copied, setKron4Copied] = useState(false);
+  const [kron5Copied, setKron5Copied] = useState(false);
+  const [kron6Copied, setKron6Copied] = useState(false);
+  const [kron7Copied, setKron7Copied] = useState(false);
+  const [kron8Copied, setKron8Copied] = useState(false);
 
   const handleCopy = (text: string, label = "Copied to clipboard!") => {
     navigator.clipboard.writeText(text);
@@ -191,7 +199,7 @@ export default function CreatorToolkit() {
       toast.error("Please log in to use this tool.");
       return;
     }
-    const cost = 50;
+    const cost = 100;
     if (balance < cost) {
       toast.error("You have run out of Free credits. Move to a paid plan or wait for free credits to reset");
       return;
@@ -552,7 +560,7 @@ export default function CreatorToolkit() {
       toast.error("Please log in to use this tool.");
       return;
     }
-    const cost = 50;
+    const cost = 150;
     if (balance < cost) {
       toast.error("You have run out of Free credits. Move to a paid plan or wait for free credits to reset");
       return;
@@ -671,7 +679,7 @@ export default function CreatorToolkit() {
       toast.error("Please log in to use this tool.");
       return;
     }
-    const cost = 150;
+    const cost = 500;
     if (balance < cost) {
       toast.error("You have run out of Free credits. Move to a paid plan or wait for free credits to reset");
       return;
@@ -942,7 +950,7 @@ ${tags}`,
       toast.error("Please log in to use this tool.");
       return;
     }
-    const cost = 100;
+    const cost = 150;
     if (balance < cost) {
       toast.error("You have run out of Free credits. Move to a paid plan or wait for free credits to reset");
       return;
@@ -1344,7 +1352,7 @@ ${tags}`,
                           <Sparkles className="h-3 w-3 text-purple-400 animate-pulse" /> Create Prompts
                         </span>
                         <span className="text-[8px] font-mono text-muted-foreground/90 lowercase mt-0.5 font-normal">
-                          consumes 50 credits
+                          consumes 100 credits
                         </span>
                       </button>
                     </div>
@@ -1471,6 +1479,439 @@ ${tags}`,
                     </div>
                   )}
                 </div>
+
+                {/* Down space - KRON Studio continuation page */}
+                <div className="md:col-span-12 mt-8 pt-8 border-t border-border/40 text-center space-y-2 w-full max-w-2xl mx-auto relative z-10">
+                  <div className="space-y-1">
+                    <h4 className="text-sm md:text-base font-display font-black tracking-widest text-purple-400 uppercase">
+                      KRON STUDIO
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground font-mono tracking-wider">
+                      (New images will be available soon)
+                    </p>
+                  </div>
+
+                  {/* KRON STUDIO GALLERY GRID */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8 justify-center max-w-4xl mx-auto">
+                    {/* First Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1LsXjbA1rJ35xiZNyMyIjTLQ4mwk6QaSh" 
+                          alt="Kron Studio Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-01</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">PORTRAIT</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A young Black man in his late teens with short curly black hair, standing in a full-body studio portrait with a confident pose. He is turned slightly to the side with his head looking off to the left, hands casually in his pockets.
+He is wearing a black denim trucker jacket with flap pockets and buttons, matching black denim jeans, and light gray sneakers with white soles.
+Minimalist studio setting with a smooth dark gray to light gray gradient background, soft dramatic lighting creating gentle shadows on the floor, high-resolution realistic fashion photography style, clean composition, sharp details on denim texture and clothing fit, modern urban minimalist aesthetic.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron1Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron1Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron1Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron1Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Second Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1t0x8I2-7JLXXIz3iGAuPZJhFt8D9AniT" 
+                          alt="Kron Studio Luxurious Hotel Lobby Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-02</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">SUIT SHOT</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A handsome man in his early 30s with dark slicked-back hair, a short well-groomed beard, and a confident slight smile, standing full-body in the center of a grand luxurious hotel lobby. He is wearing a tailored black suit, white dress shirt, black tie, white pocket square, and polished black leather dress shoes, with one hand in his pocket and the other relaxed by his side, wearing a luxury watch.
+The background features an opulent classical interior with large crystal chandeliers, marble floors with intricate patterns, a grand staircase with ornate railing, tall marble columns, large arched windows, and elegant furniture with fresh flower arrangements. Soft warm ambient lighting, high-end realistic photography style, cinematic composition, sharp details, sophisticated and professional atmosphere.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron2Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron2Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron2Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron2Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Third Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1J8bxFMaOYaXBrWOSZxSRA8hVDOzgoiT8" 
+                          alt="Kron Studio Staircase Emerald Gown Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-03</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">EMERALD GOWN</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A beautiful woman in her early 30s with elegant updo hairstyle and refined makeup, standing gracefully on a grand marble staircase in a luxurious classical ballroom. She is wearing a stunning floor-length emerald green velvet gown with long sleeves, intricate silver beaded embroidery on the neckline and cuffs, and a flowing sheer train.
+She has a confident and poised expression, looking slightly to the side. The background features opulent palace architecture with massive crystal chandeliers, ornate gold moldings, tall marble columns, red velvet drapes, and a polished herringbone wooden floor. Soft warm lighting with sparkling chandelier reflections, cinematic high-end fashion photography style, highly detailed, elegant and regal atmosphere, 9:16 vertical composition.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron3Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron3Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron3Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron3Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fourth Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1ce5RJ5-Q8FQHhXChzx6whaDv73O_0i-T" 
+                          alt="Kron Studio Palace Interior Crimson Gown Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-04</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">ROYAL CRIMSON</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A regal and elegant woman in her early 30s with fair skin, sophisticated updo hairstyle, and graceful posture, standing in a luxurious classical palace interior. She is wearing a breathtaking floor-length dark crimson velvet royal gown with intricate gold embroidery, pearls, red and green gemstones, long sleeves, and a dramatic flowing cape with ornate gold trim. She wears a magnificent jeweled crown/tiara, sparkling diamond necklace, and matching earrings.
+She has a poised, confident expression while looking slightly to the side. The background features rich wood paneling, a large ornate fireplace, heavy luxurious curtains, and warm dramatic lighting with rays of sunlight coming through tall windows. Highly detailed, cinematic royal portrait photography, opulent and majestic atmosphere, sharp focus on fabric textures, embroidery, and jewelry, 9:16 vertical composition, ultra-realistic.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron4Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron4Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron4Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron4Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fifth Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1fGqKGHFEIG8WoBy4m7X-NBwrZhGcEjkR" 
+                          alt="Kron Studio Modern Corporate Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-05</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">CORPORATE</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A confident and professional Black woman in her early 30s with short curly twisted hair, standing in a modern futuristic corporate office with arms crossed. She is wearing a tailored navy blue pinstripe suit jacket and matching skirt, white silk blouse, gold watch, and small hoop earrings. She has a slight smile and direct, empowered gaze at the camera.
+The background features a sleek high-tech office interior with large curved glass windows overlooking a glowing city skyline at dusk, holographic data displays, curved architectural elements with purple and blue neon accent lighting, and polished floors. Cinematic lighting with soft highlights on her face and suit, high-resolution realistic photography style, sharp details, professional and powerful corporate aesthetic, 9:16 vertical composition.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron5Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron5Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron5Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron5Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sixth Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1kXjP7Fgi8CRI3HS3gK6-D9nME1klBkHk" 
+                          alt="Kron Studio Streetwear Portrait Tokyo" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-06</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">STREETWEAR</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A stylish young Asian man in his mid-20s with shoulder-length dark hair, wearing a dark gray beanie, walking confidently on a wet city street at dusk. He is dressed in layered streetwear: a dark hoodie under an olive green utility vest with multiple pockets, black cargo pants, a black crossbody sling bag, silver chain necklace, and black/white/red Nike sneakers.
+He has a cool, casual expression while looking slightly to the side. The background is a vibrant Japanese city street (Tokyo style) with tall modern buildings covered in glowing neon signs, cars on the road, pedestrians with umbrellas, and reflections on the wet pavement. Cinematic evening lighting with soft ambient glow from signs and streetlights, realistic high-resolution street photography style, sharp details, urban atmosphere.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron6Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron6Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron6Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron6Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Seventh Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1IyDgQcD14WmPRFh9MzGeI-6rwnLPCJAS" 
+                          alt="Kron Studio Luxury Watch Portrait" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-07</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">WATCH SHOT</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A highly detailed, luxurious product shot of a premium silver chronograph wristwatch displayed on a glossy black marble table with gold veining. The watch features an octagonal bezel, integrated metal bracelet, black textured dial with multiple subdials, and "AURA" branding on the dial and crown.
+The watch is positioned at a slight angle, showing beautiful reflections on the polished marble surface. Dramatic cinematic lighting with soft highlights and deep shadows emphasizing the metallic textures and intricate details. Background is a blurred opulent interior with warm ambient lighting and a crystal chandelier. High-end luxury watch photography style, ultra-realistic, sharp focus on the watch, rich colors and reflections, elegant and sophisticated mood.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron7Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron7Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron7Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron7Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Eighth Image Card */}
+                    <div className="relative group overflow-hidden rounded-2xl bg-zinc-950 border border-white/5 hover:border-purple-500/30 transition-all duration-300 shadow-xl shadow-black/40 flex flex-col justify-between p-4">
+                      {/* Image container with 9:16 aspect ratio */}
+                      <div className="relative aspect-[9/16] w-full rounded-xl overflow-hidden bg-zinc-900">
+                        <img 
+                          src="https://lh3.googleusercontent.com/d/1Th31KGpoEjFbpAPG6Ou-I0P-frR9cFnU" 
+                          alt="Kron Studio Premium Silver Chronograph Wristwatch" 
+                          className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-[1.03]"
+                          referrerPolicy="no-referrer"
+                        />
+                        {/* Elegant dark overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Content block below/overlayed */}
+                      <div className="mt-4 space-y-3 z-10 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500 tracking-wider">KRON-08</span>
+                          <span className="text-[10px] font-mono text-purple-400/80 uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded">CHRONOGRAPH</span>
+                        </div>
+
+                        {/* Copy button */}
+                        <button
+                          onClick={() => {
+                            const promptText = `A highly detailed, luxurious product shot of a premium silver chronograph wristwatch displayed on a glossy black marble table with gold veining. The watch features an octagonal bezel, integrated metal bracelet, black textured dial with multiple subdials, and "AURA" branding on the dial and crown.
+The watch is positioned at a slight angle, showing beautiful reflections on the polished marble surface. Dramatic cinematic lighting with soft highlights and deep shadows emphasizing the metallic textures and intricate details. Background is a blurred opulent interior with warm ambient lighting and a crystal chandelier. High-end luxury watch photography style, ultra-realistic, sharp focus on the watch, rich colors and reflections, elegant and sophisticated mood.`;
+                            navigator.clipboard.writeText(promptText);
+                            setKron8Copied(true);
+                            toast.success("Prompt copied to clipboard!");
+                            setTimeout(() => setKron8Copied(false), 2000);
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold transition-all active:scale-[0.98] ${
+                            kron8Copied 
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                              : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-900/30 hover:shadow-purple-900/40 border border-purple-500/30"
+                          }`}
+                        >
+                          {kron8Copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              PROMPT COPIED!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              COPY PROMPT
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </motion.div>
             )}
 
@@ -1687,7 +2128,7 @@ ${tags}`,
                       <Sliders className="h-4 w-4" /> Test Thumbnail
                     </span>
                     <span className="text-[9px] font-mono text-muted-foreground/85 lowercase mt-0.5 font-normal">
-                      consumes 50 credits
+                      consumes 150 credits
                     </span>
                   </button>
                 </div>
@@ -1833,7 +2274,7 @@ ${tags}`,
                       <Video className="h-4 w-4" /> Test Video Retention
                     </span>
                     <span className="text-[9px] font-mono text-muted-foreground/85 lowercase mt-0.5 font-normal">
-                      consumes 150 credits
+                      consumes 500 credits
                     </span>
                   </button>
                 </div>
@@ -2193,7 +2634,7 @@ ${tags}`,
                       <ShieldAlert className="h-4 w-4 text-red-400" /> Perform Forensic Diagnosis
                     </span>
                     <span className="text-[9px] font-mono text-muted-foreground/85 lowercase mt-0.5 font-normal">
-                      consumes 100 credits
+                      consumes 150 credits
                     </span>
                   </button>
                 </div>

@@ -42,32 +42,32 @@ export function HeroPromoGrid() {
   const cards = [
     {
       id: "creator",
-      imageSrc: "https://images.unsplash.com/photo-1531538606174-0f90ff5dce83?auto=format&fit=crop&w=800&q=80",
-      badgeText: "Content Creator: Perfect AI Prompts",
+      imageSrc: "https://lh3.googleusercontent.com/d/1demSAOpmEQvdN_Ejw6Lrbn6UOKX0Jziq",
+      badgeText: "Prompt Studio: Build Perfect AI Prompts",
     },
     {
       id: "writer",
-      imageSrc: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+      imageSrc: "https://lh3.googleusercontent.com/d/14truzvmFruVyXL9nIZXw9M7usEdCAxIW",
       badgeText: "Movie Writer: Create Viral Scripts",
     },
     {
       id: "youtuber",
-      imageSrc: "https://images.unsplash.com/photo-1620336655055-088d06e36bf0?auto=format&fit=crop&w=800&q=80",
+      imageSrc: "https://lh3.googleusercontent.com/d/1zwnpLFiWGDg1GLXzPMq4vqqVpx6wjj5n",
       badgeText: "YouTuber: 10X Faster Success!",
     },
     {
       id: "logo",
-      imageSrc: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
+      imageSrc: "https://lh3.googleusercontent.com/d/1l-C-UP_UKRTAyhofNxHqJ8C4syoyZfof",
       badgeText: "KRON SCRIPT AI powered by Auratech.",
     },
   ];
 
   return (
-    <div className="w-full max-w-4xl mx-auto mt-6 mb-2 md:mt-12 md:mb-6 px-4 md:px-0 z-10 relative" id="hero-promo-grid-container">
+    <div className="w-full max-w-5xl mx-auto mt-6 mb-2 md:mt-12 md:mb-6 px-4 md:px-0 z-10 relative" id="hero-promo-grid-container">
       {/* Background glow behind the entire collage */}
       <div className="absolute inset-0 bg-indigo-500/5 rounded-[4rem] filter blur-3xl pointer-events-none" />
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-10 relative z-10">
         {cards.map((card) => (
           <PromoCard
             key={card.id}

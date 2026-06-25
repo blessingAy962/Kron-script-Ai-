@@ -9,7 +9,8 @@ import {
   CheckCircle,
   HelpCircle,
   TrendingUp,
-  Award
+  Award,
+  ArrowUpRight
 } from "lucide-react";
 import { db } from "@/src/lib/firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -163,9 +164,20 @@ export function DashboardStatsSection() {
 
         <div className="pt-4 flex items-center justify-between text-[10px] font-mono border-t border-border/30 mt-3">
           <span className="text-muted-foreground">PREMIUM ACCESS</span>
-          <span className="text-foreground font-black uppercase">
-            {currentPlan !== "free" ? "FULL CORE SUITE" : "STANDARD PREVIEW"}
-          </span>
+          {currentPlan !== "free" ? (
+            <a 
+              href="https://whop.com/orders/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-primary hover:underline font-black uppercase flex items-center gap-1 cursor-pointer"
+            >
+              Manage Plan <ArrowUpRight className="h-3 w-3" />
+            </a>
+          ) : (
+            <span className="text-foreground font-black uppercase">
+              STANDARD PREVIEW
+            </span>
+          )}
         </div>
       </div>
 

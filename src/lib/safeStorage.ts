@@ -1,30 +1,52 @@
-export const safeGetItem = (key: string, defaultValueIfMissing: string = ""): string => {
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      return localStorage.getItem(key) || defaultValueIfMissing;
+let isLocalStorageSupported = false;
+const memoryStorage: Record<string, string> = {};
+
+try {
+  if (typeof window !== "undefined") {
+    // Accessing window.localStorage will throw an error immediately if blocked
+    const storage = window.localStorage;
+    if (storage) {
+      const testKey = "__storage_test__";
+      storage.setItem(testKey, testKey);
+      storage.removeItem(testKey);
+      isLocalStorageSupported = true;
     }
-  } catch (e) {
-    console.warn(`localStorage.getItem restricted for key "${key}":`, e);
   }
-  return defaultValueIfMissing;
+} catch (e) {
+  // Safe block
+}
+
+export const safeGetItem = (key: string, defaultValueIfMissing: string = ""): string => {
+  if (isLocalStorageSupported) {
+    try {
+      return window.localStorage.getItem(key) || defaultValueIfMissing;
+    } catch (e) {
+      // Fallback
+    }
+  }
+  return key in memoryStorage ? memoryStorage[key] : defaultValueIfMissing;
 };
 
 export const safeSetItem = (key: string, value: string): void => {
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.setItem(key, value);
+  if (isLocalStorageSupported) {
+    try {
+      window.localStorage.setItem(key, value);
+      return;
+    } catch (e) {
+      // Fallback
     }
-  } catch (e) {
-    console.warn(`localStorage.setItem restricted for key "${key}":`, e);
   }
+  memoryStorage[key] = String(value);
 };
 
 export const safeRemoveItem = (key: string): void => {
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.removeItem(key);
+  if (isLocalStorageSupported) {
+    try {
+      window.localStorage.removeItem(key);
+      return;
+    } catch (e) {
+      // Fallback
     }
-  } catch (e) {
-    console.warn(`localStorage.removeItem restricted for key "${key}":`, e);
   }
+  delete memoryStorage[key];
 };

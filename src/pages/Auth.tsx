@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Loader2, Cookie, Info, LockKeyhole, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Cookie, Info, LockKeyhole, Mail, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { KronLogo } from "../components/KronLogo";
 import { useAuth } from "@/src/hooks/useAuth";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ export default function Auth() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<{ title: string; desc: string; solution?: string } | null>(null);
   const [acceptCookies, setAcceptCookies] = useState<boolean>(() => {
@@ -193,15 +194,30 @@ export default function Auth() {
                     </button>
                   )}
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer flex items-center justify-center p-1 rounded-md"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 

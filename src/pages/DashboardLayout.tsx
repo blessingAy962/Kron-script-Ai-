@@ -6,7 +6,7 @@ import ThemeToggle from "@/src/components/ThemeToggle";
 import { SettingsMenu } from "@/src/components/SettingsMenu";
 import { useAuth } from "@/src/hooks/useAuth";
 import { db } from "@/src/lib/firebase";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -24,6 +24,42 @@ export default function DashboardLayout() {
         const data = snap.data();
         const coinsVal = data.coins ?? 150;
         setBalance(coinsVal);
+
+        // 3. 30-DAY / CANCEL DOWNGRADE:
+        // On app load, if (now > expiresAt) OR (status == 'canceled'), force DB to: {tier: 'free', isPaid: false}.
+        const expiresAt = data.expiresAt;
+        const planStatusVal = data.status || data.plan_status;
+        let needsDowngrade = false;
+
+        if (planStatusVal === "canceled" || planStatusVal === "cancelled") {
+          needsDowngrade = true;
+        } else if (expiresAt) {
+          const expiresAtMs = typeof expiresAt.toMillis === "function" 
+            ? expiresAt.toMillis() 
+            : new Date(expiresAt).getTime();
+          if (Date.now() > expiresAtMs) {
+            needsDowngrade = true;
+          }
+        }
+
+        if (needsDowngrade && data.plan !== "free") {
+          try {
+            await setDoc(coinsRef, {
+              plan: "free",
+              plan_status: "active",
+              tier: "free",
+              isPaid: false,
+              status: "active"
+            }, { merge: true });
+            
+            import("sonner").then(({ toast }) => {
+              toast.info("Subscription expired or canceled. Reverted license to Free Tier.");
+            });
+          } catch (downgradeErr) {
+            console.warn("Failed to automatically downgrade subscription on expiry:", downgradeErr);
+          }
+          return; // Allow the next cycle to handle reset/bootstrap
+        }
 
         // Core 24-hour Auto Reset logic for free credits
         const lastReset = data.last_reset_time;
@@ -80,6 +116,72 @@ export default function DashboardLayout() {
       console.warn("Layout coins balance dynamic query error: ", err);
     });
     return () => unsub();
+  }, [user]);
+
+  // Whop Redirect Listener
+  useEffect(() => {
+    if (!user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const successParam = params.get("success");
+    const failedParam = params.get("failed");
+    const cancelParam = params.get("cancel");
+    const planParam = params.get("plan");
+
+    if (successParam === "true") {
+      const handleSuccessfulPayment = async () => {
+        try {
+          const purchasedPlan = planParam || "creator";
+          // Convert hyphens like "pro-creator" to standard underscore structure
+          const planId = purchasedPlan === "pro-creator" ? "pro_creator" : purchasedPlan;
+          
+          const planCoinsMap: Record<string, number> = {
+            starter: 5000,
+            creator: 25000,
+            pro_creator: 100000,
+            "pro-creator": 100000
+          };
+          const coinsToAdd = planCoinsMap[planId] || 25000;
+
+          const coinsRef = doc(db, "user_coins", user.uid);
+          const snap = await getDoc(coinsRef);
+          const currentCoins = snap.exists() ? (snap.data().coins ?? 150) : 150;
+          const finalCoins = currentCoins + coinsToAdd;
+
+          const expiresDate = new Date();
+          expiresDate.setDate(expiresDate.getDate() + 30);
+
+          await setDoc(coinsRef, {
+            plan: planId,
+            plan_status: "active",
+            tier: planId,
+            isPaid: true,
+            status: "active",
+            expiresAt: expiresDate,
+            coins: finalCoins,
+            license_acquired_at: new Date()
+          }, { merge: true });
+
+          import("sonner").then(({ toast }) => {
+            toast.success(`Payment Successful! Activated ${planId.replace("_", " ")} license & added +${coinsToAdd.toLocaleString()} workspace credits.`);
+          });
+
+          // Clean up search query params without triggering full reload
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        } catch (err) {
+          console.error("Failed to handle successful redirection:", err);
+        }
+      };
+      handleSuccessfulPayment();
+    } else if (failedParam === "true" || cancelParam === "true") {
+      import("sonner").then(({ toast }) => {
+        toast.error("Payment Failed!");
+      });
+      // Clean up search query params
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
   }, [user]);
 
   return (

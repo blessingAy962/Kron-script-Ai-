@@ -30,9 +30,10 @@ import { fullAcademyMasterData } from "../data/academy_part3";
 interface AcademyViewerProps {
   onClose: () => void;
   userEmail?: string;
+  onComplete?: () => void;
 }
 
-export default function AcademyViewer({ onClose, userEmail }: AcademyViewerProps) {
+export default function AcademyViewer({ onClose, userEmail, onComplete }: AcademyViewerProps) {
   const [activePage, setActivePage] = useState<number>(0);
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -706,7 +707,7 @@ export default function AcademyViewer({ onClose, userEmail }: AcademyViewerProps
             </span>
 
             <button
-              onClick={() => activePage < 11 ? setPage(activePage + 1) : onClose()}
+              onClick={() => activePage < 11 ? setPage(activePage + 1) : (onComplete ? onComplete() : onClose())}
               className="px-4 py-2.5 bg-zinc-900/55 hover:bg-zinc-900 border border-zinc-800 text-purple-400 hover:text-purple-300 rounded-xl flex items-center gap-1 cursor-pointer transition-all select-none"
             >
               <span>{activePage === 11 ? "Complete & Exit" : "Next Module"}</span>

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@350;450;550;650;750&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@350;450;550;650;750&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @theme {
   --color-background: var(--background);
@@ -15,8 +15,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
 
-  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
-  --font-body: "Inter", sans-serif;
+  --font-display: "Roboto", "Plus Jakarta Sans", sans-serif;
+  --font-body: "Roboto", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 

@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/src/hooks/useAuth";
 import { db } from "@/src/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, setDoc, deleteDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { KronLogo } from "../components/KronLogo";
 import { SettingsMenu } from "../components/SettingsMenu";
@@ -93,7 +93,7 @@ const ChatInputArea = forwardRef<
     triggerFileClick: () => void;
     triggerImageClick: () => void;
     removeAttachedFile: (idx: number) => void;
-    onSend: (text: string) => void;
+    onSend: () => void;
   }
 >(({
   isLoading,
@@ -111,12 +111,12 @@ const ChatInputArea = forwardRef<
   useImperativeHandle(ref, () => ({
     setValue: (val: string) => setInputValue(val),
     getValue: () => inputValue,
-  }));
+  }), [inputValue]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSend(inputValue);
+      onSend();
     }
   };
 
@@ -215,7 +215,7 @@ const ChatInputArea = forwardRef<
               whileTap={{ scale: 0.9, y: 1 }}
               whileHover={{ scale: 1.04 }}
               disabled={(!inputValue.trim() && attachedFiles.length === 0) || isLoading}
-              onClick={() => onSend(inputValue)}
+              onClick={() => onSend()}
               className="p-2.5 bg-primary hover:bg-primary/95 text-white shadow-sm shadow-primary/10 rounded-xl cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
               title="Deliver instruction to Kron AI"
             >
@@ -326,7 +326,7 @@ export default function DashboardKronAI() {
     const timestampsKey = `kron_chat_timestamps_${user.uid}`;
     let savedTimestamps: number[] = [];
     try {
-      savedTimestamps = JSON.parse(localStorage.getItem(timestampsKey) || "[]");
+      savedTimestamps = JSON.parse(safeGetItem(timestampsKey, "[]"));
     } catch {}
     const nowMs = Date.now();
     const activeTimestamps = savedTimestamps.filter((t: number) => nowMs - t < 24 * 60 * 60 * 1000);
@@ -343,11 +343,11 @@ export default function DashboardKronAI() {
     const timestampsKey = `kron_chat_timestamps_${user.uid}`;
     let savedTimestamps: number[] = [];
     try {
-      savedTimestamps = JSON.parse(localStorage.getItem(timestampsKey) || "[]");
+      savedTimestamps = JSON.parse(safeGetItem(timestampsKey, "[]"));
     } catch {}
     const nowMs = Date.now();
     const updated = [...savedTimestamps, nowMs].filter((t: number) => nowMs - t < 24 * 60 * 60 * 1000);
-    localStorage.setItem(timestampsKey, JSON.stringify(updated));
+    safeSetItem(timestampsKey, JSON.stringify(updated));
     setActiveChatUsageCount(updated.length);
   };
 
@@ -419,7 +419,7 @@ export default function DashboardKronAI() {
   const recognitionRef = useRef<any>(null);
 
   // -----------------------------------------
-  // Initial Loader from localStorage (User-isolated)
+  // Initial Loader & Real-time Firestore Sync (User-isolated & Synced across devices)
   // -----------------------------------------
   useEffect(() => {
     if (!user) {
@@ -430,43 +430,82 @@ export default function DashboardKronAI() {
       return;
     }
 
-    // 1. Thread sync
-    const savedThreads = localStorage.getItem(threadsKey);
-    let parsedThreads: Thread[] = [];
-    if (savedThreads) {
-      try {
-        parsedThreads = JSON.parse(savedThreads);
-      } catch (err) {
-        console.error("Local storage sync error", err);
+    // 1. Live Firestore subscription for Threads
+    const threadsCol = collection(db, "user_chats", user.uid, "threads");
+    const unsubscribeFirestore = onSnapshot(threadsCol, (snap) => {
+      let firestoreThreads: Thread[] = [];
+      snap.forEach((docSnap) => {
+        firestoreThreads.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        } as Thread);
+      });
+
+      // Sort by createdAt descending
+      firestoreThreads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      if (firestoreThreads.length === 0) {
+        // If Firestore is empty, try to migrate from local storage so we do not delete anything
+        const savedThreads = safeGetItem(threadsKey);
+        let parsedThreads: Thread[] = [];
+        if (savedThreads) {
+          try {
+            parsedThreads = JSON.parse(savedThreads);
+          } catch {}
+        }
+
+        if (parsedThreads.length > 0) {
+          parsedThreads.forEach((th) => {
+            setDoc(doc(db, "user_chats", user.uid, "threads", th.id), {
+              id: th.id,
+              user_id: user.uid,
+              title: th.title || "Untitled Session",
+              createdAt: th.createdAt || new Date().toISOString(),
+              messages: th.messages || [],
+              isPinned: th.isPinned ?? false,
+              isArchived: th.isArchived ?? false
+            }).catch(err => console.error("Migration error for thread:", th.id, err));
+          });
+          return;
+        } else {
+          // Create default welcoming thread in Firestore
+          const defaultThreadId = `default-premier-session-${user.uid}`;
+          const initialThread: Thread = {
+            id: defaultThreadId,
+            title: "Welcome to Kron AI",
+            createdAt: new Date().toISOString(),
+            messages: [],
+            isPinned: true,
+            isArchived: false
+          };
+          setDoc(doc(db, "user_chats", user.uid, "threads", defaultThreadId), {
+            id: defaultThreadId,
+            user_id: user.uid,
+            title: initialThread.title,
+            createdAt: initialThread.createdAt,
+            messages: initialThread.messages,
+            isPinned: initialThread.isPinned,
+            isArchived: initialThread.isArchived
+          }).catch(err => console.error("Error creating default thread:", err));
+          return;
+        }
       }
-    }
 
-    // Default welcoming thread
-    if (parsedThreads.length === 0) {
-      const defaultThreadId = `default-premier-session-${user.uid}`;
-      const initialThread: Thread = {
-        id: defaultThreadId,
-        title: "Welcome to Kron AI",
-        createdAt: new Date().toISOString(),
-        isPinned: true,
-        isArchived: false,
-        messages: []
-      };
-      parsedThreads = [initialThread];
-    }
+      setThreads(firestoreThreads);
 
-    setThreads(parsedThreads);
-    
-    // Choose active session or default to first
-    const lastActiveId = localStorage.getItem(lastActiveKey);
-    if (lastActiveId && parsedThreads.some(t => t.id === lastActiveId)) {
-      setActiveThreadId(lastActiveId);
-    } else {
-      setActiveThreadId(parsedThreads[0].id);
-    }
+      // Choose active session or default to first
+      const lastActiveId = safeGetItem(lastActiveKey);
+      if (lastActiveId && firestoreThreads.some(t => t.id === lastActiveId)) {
+        setActiveThreadId(lastActiveId);
+      } else if (firestoreThreads.length > 0) {
+        setActiveThreadId(firestoreThreads[0].id);
+      }
+    }, (error) => {
+      console.error("Firestore threads subscribe error:", error);
+    });
 
     // 2. Custom persistent memories/instructions
-    const savedInstructions = localStorage.getItem(instructionsKey);
+    const savedInstructions = safeGetItem(instructionsKey);
     if (savedInstructions) {
       try {
         setCustomInstructions(JSON.parse(savedInstructions));
@@ -480,7 +519,7 @@ export default function DashboardKronAI() {
         "Always respond with highly verified facts and structured markdown syntax"
       ];
       setCustomInstructions(defaults);
-      localStorage.setItem(instructionsKey, JSON.stringify(defaults));
+      safeSetItem(instructionsKey, JSON.stringify(defaults));
     }
 
     // Adapt sidebar initially based on window width
@@ -493,7 +532,11 @@ export default function DashboardKronAI() {
     };
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    return () => {
+      unsubscribeFirestore();
+      window.removeEventListener("resize", handleResize);
+    };
   }, [user, threadsKey, lastActiveKey, instructionsKey]);
 
   const activeThread = threads.find(t => t.id === activeThreadId);
@@ -508,9 +551,55 @@ export default function DashboardKronAI() {
   }, [activeThread?.messages, isLoading]);
 
   // Synchronizer
-  const syncAndSave = (updatedThreads: Thread[]) => {
+  const syncAndSave = async (updatedThreads: Thread[]) => {
     setThreads(updatedThreads);
-    localStorage.setItem(threadsKey, JSON.stringify(updatedThreads));
+    safeSetItem(threadsKey, JSON.stringify(updatedThreads));
+
+    if (user) {
+      try {
+        // Find deleted threads to remove from Firestore
+        const prevIds = threads.map(t => t.id);
+        const newIds = updatedThreads.map(t => t.id);
+        const deletedIds = prevIds.filter(id => !newIds.includes(id));
+
+        for (const delId of deletedIds) {
+          try {
+            await deleteDoc(doc(db, "user_chats", user.uid, "threads", delId));
+          } catch (e) {
+            console.error("Error deleting Firestore thread document:", delId, e);
+          }
+        }
+
+        // Save updated or brand new threads to Firestore
+        for (const th of updatedThreads) {
+          const existingThread = threads.find(t => t.id === th.id);
+          const hasChanged = !existingThread || 
+            existingThread.title !== th.title ||
+            existingThread.isPinned !== th.isPinned ||
+            existingThread.isArchived !== th.isArchived ||
+            existingThread.messages.length !== th.messages.length ||
+            JSON.stringify(existingThread.messages) !== JSON.stringify(th.messages);
+
+          if (hasChanged) {
+            try {
+              await setDoc(doc(db, "user_chats", user.uid, "threads", th.id), {
+                id: th.id,
+                user_id: user.uid,
+                title: th.title,
+                createdAt: th.createdAt,
+                messages: th.messages,
+                isPinned: th.isPinned ?? false,
+                isArchived: th.isArchived ?? false
+              });
+            } catch (e) {
+              console.error("Error saving Firestore thread document:", th.id, e);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing threads with Firestore:", err);
+      }
+    }
   };
 
   // -----------------------------------------
@@ -530,7 +619,7 @@ export default function DashboardKronAI() {
     const nextThreads = [newThread, ...threads];
     syncAndSave(nextThreads);
     setActiveThreadId(threadId);
-    localStorage.setItem(lastActiveKey, threadId);
+    safeSetItem(lastActiveKey, threadId);
     inputAreaRef.current?.setValue("");
     toast.success("Initialized a fresh conversation.");
     
@@ -542,7 +631,7 @@ export default function DashboardKronAI() {
 
   const handleSelectThread = (id: string) => {
     setActiveThreadId(id);
-    localStorage.setItem(lastActiveKey, id);
+    safeSetItem(lastActiveKey, id);
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
@@ -563,13 +652,13 @@ export default function DashboardKronAI() {
       };
       syncAndSave([emptyThread]);
       setActiveThreadId(defaultId);
-      localStorage.setItem(lastActiveKey, defaultId);
+      safeSetItem(lastActiveKey, defaultId);
     } else {
       syncAndSave(nextThreads);
       if (activeThreadId === id) {
         const firstUnarchived = nextThreads.find(t => !t.isArchived) || nextThreads[0];
         setActiveThreadId(firstUnarchived.id);
-        localStorage.setItem(lastActiveKey, firstUnarchived.id);
+        safeSetItem(lastActiveKey, firstUnarchived.id);
       }
     }
     toast.success(`Deleted conversation thread.`);
@@ -604,10 +693,10 @@ export default function DashboardKronAI() {
       const remainingUnarchived = nextThreads.filter(t => !t.isArchived);
       if (remainingUnarchived.length > 0) {
         setActiveThreadId(remainingUnarchived[0].id);
-        localStorage.setItem(lastActiveKey, remainingUnarchived[0].id);
+        safeSetItem(lastActiveKey, remainingUnarchived[0].id);
       } else {
         setActiveThreadId(nextThreads[0].id);
-        localStorage.setItem(lastActiveKey, nextThreads[0].id);
+        safeSetItem(lastActiveKey, nextThreads[0].id);
       }
     }
     
@@ -780,7 +869,7 @@ export default function DashboardKronAI() {
     }
     const nextList = [...customInstructions, text];
     setCustomInstructions(nextList);
-    localStorage.setItem(instructionsKey, JSON.stringify(nextList));
+    safeSetItem(instructionsKey, JSON.stringify(nextList));
     setNewInstruction("");
     toast.success("Updated core instructions profile of Kron AI.");
   };
@@ -788,7 +877,7 @@ export default function DashboardKronAI() {
   const handleDeleteInstruction = (idx: number) => {
     const nextList = customInstructions.filter((_, i) => i !== idx);
     setCustomInstructions(nextList);
-    localStorage.setItem(instructionsKey, JSON.stringify(nextList));
+    safeSetItem(instructionsKey, JSON.stringify(nextList));
     toast.info("Instruction removed.");
   };
 
@@ -1100,7 +1189,7 @@ export default function DashboardKronAI() {
     };
     syncAndSave([defaultThread]);
     setActiveThreadId(defaultId);
-    localStorage.setItem(lastActiveKey, defaultId);
+    safeSetItem(lastActiveKey, defaultId);
     toast.success("All conversation grids flushed cleanly.");
   };
 
@@ -1463,8 +1552,8 @@ export default function DashboardKronAI() {
                 <Sliders className="h-4 w-4" />
               </motion.button>
 
-              {/* Universal Settings Cog allowing turning off sounds */}
-              <SettingsMenu />
+              {/* Universal Settings Cog allowing turning off sounds - commented out to avoid confusion of two settings icons */}
+              {/* <SettingsMenu /> */}
             </div>
           </div>
 
@@ -1792,7 +1881,7 @@ export default function DashboardKronAI() {
             triggerFileClick={triggerFileClick}
             triggerImageClick={triggerImageClick}
             removeAttachedFile={removeAttachedFile}
-            onSend={(val) => handleSend(val)}
+            onSend={() => handleSend()}
           />
 
         </div>

@@ -167,7 +167,7 @@ export default function DashboardCourse() {
     }
   }, [referrals, profile, user, loading]);
 
-  const testKeywordChallenge = (mod: CourseModule) => {
+  const testKeywordChallenge = async (mod: CourseModule) => {
     const input = challengeInput.trim().toLowerCase();
     if (!input) {
       toast.error("Please compose a command script inside the workspace first.");
@@ -182,6 +182,26 @@ export default function DashboardCourse() {
         msg: `Excellent strategy! Your prompts successfully aligned with target coordinates: ${matches.join(", ")}. Perfect alignment!`
       });
       toast.success("Lesson challenge successfully verified and cleared! 🎉");
+
+      // Grant actual credit rewards!
+      if (user && profile) {
+        const claimKey = `challenge_${mod.id}_claimed`;
+        if (profile[claimKey]) {
+          toast.info("Task reward already claimed for this module.");
+        } else {
+          try {
+            const profileRef = doc(db, "user_coins", user.uid);
+            await updateDoc(profileRef, {
+              coins: increment(250),
+              [claimKey]: true
+            });
+            toast.success(`🎉 Task Reward Unlocked! Added +250 credits to your workspace.`);
+          } catch (err) {
+            console.error("Failed to credit task reward:", err);
+            toast.error("Failed to credit your reward. Please check your network connection.");
+          }
+        }
+      }
     } else {
       setChallengeResult({
         success: false,
@@ -193,7 +213,7 @@ export default function DashboardCourse() {
 
   const handleCopyLink = () => {
     if (!user) return;
-    const refLink = `${window.location.origin}/auth?ref=${user.uid}`;
+    const refLink = `https://kronscriptai.netlify.app/auth?ref=${user.uid}`;
     navigator.clipboard.writeText(refLink);
     setCopied(true);
     toast.success("Your exclusive Affiliate Referral Link copied to clipboard!");
@@ -719,7 +739,7 @@ export default function DashboardCourse() {
                 <input 
                   type="text" 
                   readOnly 
-                  value={user ? `${window.location.origin}/auth?ref=${user.uid}` : "Please log in to load referral link..."}
+                  value={user ? `https://kronscriptai.netlify.app/auth?ref=${user.uid}` : "Please log in to load referral link..."}
                   className="bg-background/80 border border-border/80 px-4 py-3 rounded-xl text-xs font-mono text-muted-foreground flex-1 select-all outline-none"
                 />
                 <button
@@ -964,26 +984,118 @@ export default function DashboardCourse() {
             {courseModules.map((mod) => (
               <div 
                 key={mod.id}
-                className="bg-card/40 border border-border/60 hover:border-purple-500/30 transition-all rounded-3xl p-6 flex items-start gap-4"
+                onClick={() => handleToggleModule(mod.id)}
+                className={`bg-card/40 border border-border/60 hover:border-purple-500/30 transition-all rounded-3xl p-6 flex flex-col gap-4 cursor-pointer relative overflow-hidden ${
+                  activeModuleId === mod.id ? "border-purple-500/50 shadow-[0_4px_20px_rgba(124,58,237,0.15)]" : ""
+                }`}
               >
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-display font-black text-xs shrink-0 select-none border ${
-                  unlocked 
-                    ? "bg-purple-500/10 border-purple-500/30 text-purple-400" 
-                    : "bg-zinc-950 border-zinc-850 text-zinc-600"
-                }`}>
-                  {unlocked ? mod.id : <Lock className="h-4 w-4" />}
+                <div className="flex items-start gap-4 w-full">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-display font-black text-xs shrink-0 select-none border ${
+                    unlocked 
+                      ? "bg-purple-500/10 border-purple-500/30 text-purple-400" 
+                      : "bg-zinc-950 border-zinc-850 text-zinc-600"
+                  }`}>
+                    {unlocked ? mod.id : <Lock className="h-4 w-4" />}
+                  </div>
+                  <div className="space-y-1 text-left min-w-0 flex-1">
+                    <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider block flex justify-between items-center">
+                      <span>Module {mod.id < 10 ? `0${mod.id}` : mod.id}</span>
+                      {profile?.[`challenge_${mod.id}_claimed`] && (
+                        <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold font-mono">COMPLETED (+250)</span>
+                      )}
+                    </h4>
+                    <p className="text-sm font-display font-black text-foreground uppercase tracking-wide leading-tight line-clamp-1 truncate">
+                      {mod.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed font-sans line-clamp-1 truncate">
+                      {mod.shortDesc}
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1 text-left min-w-0 flex-1">
-                  <h4 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider block">
-                    Module {mod.id < 10 ? `0${mod.id}` : mod.id}
-                  </h4>
-                  <p className="text-sm font-display font-black text-foreground uppercase tracking-wide leading-tight line-clamp-1 truncate">
-                    {mod.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground leading-relaxed leading-relaxed font-sans">
-                    {mod.shortDesc}
-                  </p>
-                </div>
+
+                {/* EXPANDABLE MODULE CONTENT */}
+                {activeModuleId === mod.id && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="border-t border-border/50 pt-4 mt-2 space-y-4 text-left"
+                    onClick={(e) => e.stopPropagation()} // Prevent collapsing when clicking inside
+                  >
+                    {/* Lesson Details */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono text-purple-400 uppercase font-black tracking-wider block">Lesson Guidelines</span>
+                      <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground font-sans pl-2">
+                        {mod.details.map((detail, dIdx) => (
+                          <li key={dIdx} className="leading-relaxed">{detail}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Instructor Tips */}
+                    <div className="space-y-2 bg-purple-500/5 border border-purple-500/10 p-3 rounded-xl">
+                      <span className="text-[10px] font-mono text-purple-400 uppercase font-black tracking-wider block flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3 text-purple-400 animate-pulse" />
+                        Instructor High-Value Tips
+                      </span>
+                      <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground font-sans pl-2">
+                        {mod.tips.map((tip, tIdx) => (
+                          <li key={tIdx} className="leading-relaxed">{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Interactive Challenge Form */}
+                    <div className="space-y-3 bg-zinc-950/40 border border-border/60 p-4 rounded-2xl">
+                      <div className="flex justify-between items-center flex-wrap gap-2">
+                        <span className="text-[10px] font-mono text-purple-400 uppercase font-black tracking-wider block flex items-center gap-1">
+                          <Zap className="h-3.5 w-3.5 text-purple-400 animate-pulse" />
+                          Interactive Task Challenge
+                        </span>
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase font-bold">
+                          Reward: +250 Credits
+                        </span>
+                      </div>
+                      <p className="text-xs text-foreground font-serif leading-relaxed italic">{mod.interactiveChallenge.instruction}</p>
+                      
+                      {profile?.[`challenge_${mod.id}_claimed`] ? (
+                        <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>Task successfully finished! Your +250 credits reward has been added to your live balance.</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <textarea
+                            value={challengeInput}
+                            onChange={(e) => {
+                              setChallengeInput(e.target.value);
+                              setChallengeResult(null);
+                            }}
+                            placeholder={mod.interactiveChallenge.placeholder}
+                            className="w-full bg-background/50 border border-border/80 p-3 rounded-xl text-xs font-mono text-muted-foreground outline-none focus:border-purple-500/50 h-20 resize-none"
+                          />
+                          <button
+                            onClick={() => testKeywordChallenge(mod)}
+                            className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-mono font-black uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Verify & Submit Task</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {challengeResult && (
+                        <div className={`p-3 text-xs rounded-xl border leading-relaxed font-sans ${
+                          challengeResult.success 
+                            ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" 
+                            : "bg-rose-500/5 border-rose-500/20 text-rose-400"
+                        }`}>
+                          {challengeResult.msg}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
               </div>
             ))}
           </div>
@@ -1032,6 +1144,26 @@ export default function DashboardCourse() {
           <AcademyViewer 
             userEmail={user?.email || "GUEST"}
             onClose={() => setIsViewingClassroom(false)} 
+            onComplete={async () => {
+              setIsViewingClassroom(false);
+              if (user && profile) {
+                if (profile.course_completed_reward_claimed) {
+                  toast.info("Course completion reward already claimed.");
+                } else {
+                  try {
+                    const profileRef = doc(db, "user_coins", user.uid);
+                    await updateDoc(profileRef, {
+                      coins: increment(1000),
+                      course_completed_reward_claimed: true
+                    });
+                    toast.success("🎉 Congratulations on Graduating! Added +1,000 bonus credits to your workspace!");
+                  } catch (err) {
+                    console.error("Failed to credit course completion reward:", err);
+                    toast.error("Failed to credit graduation reward. Please check your network.");
+                  }
+                }
+              }
+            }}
           />
         )}
       </AnimatePresence>
