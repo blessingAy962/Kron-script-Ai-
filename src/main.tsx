@@ -2,6 +2,18 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import posthog from 'posthog-js';
+
+// Initialize PostHog safely with fail-safes for sandboxed iframes
+try {
+  posthog.init('phc_zgsiEkQq8SCJe3CHy8wxA7Vc4irEtMzvhDNKnKZnoEe8', {
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'identified_only',
+    capture_pageview: true,
+  });
+} catch (e) {
+  console.warn("PostHog analytics failed to initialize or was blocked by sandbox constraints:", e);
+}
 
 // Intercept browser environment localStorage/sessionStorage SecurityErrors inside sandbox/iframes
 try {
