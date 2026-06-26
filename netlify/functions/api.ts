@@ -37,6 +37,70 @@ function getAI(): GoogleGenAI {
   return sandboxClient;
 }
 
+function isPromptUnsafe(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  
+  const unsafePatterns = [
+    "security key",
+    "security-key",
+    "private key",
+    "private-key",
+    "api key",
+    "api-key",
+    "secret key",
+    "secret-key",
+    "admin key",
+    "admin-key",
+    "security key for kron",
+    "security key for kron script ai",
+    "kron script ai security",
+    "kron script security",
+    "kron security key",
+    "auratech security key",
+    "system prompt",
+    "system-prompt",
+    "jailbreak",
+    "bypass restrictions",
+    "illegal question",
+    "illegal activity",
+    "illegal guidance",
+    "hacking",
+    "hacker",
+    "exploit",
+    "credentials",
+    "passwords",
+    "private information",
+    "private info",
+    "share other users",
+    "other users data",
+    "other user's data",
+    "other users history",
+    "other user's history",
+    "users data",
+    "users history",
+    "read other people",
+    "expose data",
+    "expose history",
+    "leak history",
+    "leak data"
+  ];
+
+  return unsafePatterns.some(pattern => lower.includes(pattern));
+}
+
+function parseBase64DataUrl(dataUrl: string) {
+  if (!dataUrl) return null;
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (match) {
+    return {
+      mimeType: match[1],
+      data: match[2],
+    };
+  }
+  return null;
+}
+
 // Robust retry wrapper for Gemini
 async function callWithRetry<T>(
   fn: (model: string) => Promise<T>,
@@ -700,11 +764,153 @@ Return your response as a JSON object matching this schema:
       }
 
       case "support-chat": {
-        return new Response(JSON.stringify({ response: "Welcome to KRON Support Desk. All operations are working normally. How can we help you scale today?" }), { status: 200, headers });
+        try {
+          const { messages } = body;
+          if (!messages || !Array.isArray(messages)) {
+            const err = new Error("Messages array is required");
+            console.error('[CHAT ERROR]:', err);
+            return new Response(JSON.stringify({ error: err.message }), { status: 400, headers });
+          }
+
+          // Server-side safety scan
+          const isAnyMessageUnsafe = messages.some(
+            (msg: any) => (msg.role === "user" || !msg.role) && isPromptUnsafe(msg.content || msg.text || "")
+          );
+
+          if (isAnyMessageUnsafe) {
+            return new Response(JSON.stringify({
+              message: {
+                role: "assistant",
+                content: "I can't do that. Is there anything I can do for you?"
+              }
+            }), { status: 200, headers });
+          }
+
+          const ai = getAI();
+          const systemPrompt = `You are "Auratech & Kron AI Supportive Intelligence" (Support AI), the official elite AI assistant for the Kron Script AI and Auratech platform. Your role is to help users report any problems, troubleshoot issues, resolve system bugs, and assist them.
+
+Your Tone & Style:
+- Professional, friendly, constructive, and extremely modern and elite (no generic canned replies).
+- Empathetic to user difficulties. Keep answers concise, direct, and actionable.
+
+Handling Issues / Problems:
+- Ask clear, high-density follow-up questions to understand the issue if needed.
+- If they report a technical problem, suggest relevant troubleshooting steps (such as clearing browser cookies, ensuring high-speed connection, validating prompt structure, or double-checking active session statuses).
+
+Human Support Escalation:
+- For real human touches, accounts, payment disputes, custom engineering, or advanced issues, explicitly point users to reach out to our team at auratech4444@gmail.com.
+- ALWAYS make sure to display the email address "auratech4444@gmail.com" clearly in bold or as contact link. Never omit it.
+- Reassure the user that our human support squad is responsive, skilled, and is happy to help.`;
+
+          const response = await callWithRetry((model) =>
+            ai.models.generateContent({
+              model,
+              contents: messages.map((msg: any) => ({
+                role: msg.role === "assistant" ? "model" : (msg.role || "user"),
+                parts: [{ text: msg.content || msg.text || "" }]
+              })),
+              config: {
+                systemInstruction: systemPrompt,
+              },
+            })
+          );
+
+          return new Response(JSON.stringify({
+            message: { role: "assistant", content: response.text }
+          }), { status: 200, headers });
+        } catch (error: any) {
+          console.error('[CHAT ERROR]:', error);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
+        }
       }
 
       case "kron-chat": {
-        return new Response(JSON.stringify({ response: "Hello creator! I am Kron, your social growth partner. Ready to write some viral screenplays?" }), { status: 200, headers });
+        try {
+          const { messages, memories } = body;
+          if (!messages || !Array.isArray(messages)) {
+            const err = new Error("Messages array is required");
+            console.error('[CHAT ERROR]:', err);
+            return new Response(JSON.stringify({ error: err.message }), { status: 400, headers });
+          }
+
+          // Server-side safety scan
+          const isAnyMessageUnsafe = messages.some(
+            (msg: any) => (msg.role === "user" || !msg.role) && isPromptUnsafe(msg.content || msg.text || "")
+          );
+
+          if (isAnyMessageUnsafe) {
+            return new Response(JSON.stringify({
+              message: {
+                role: "assistant",
+                content: "I can't do that. Is there anything I can do for you?"
+              }
+            }), { status: 200, headers });
+          }
+
+          const ai = getAI();
+          let systemPrompt = `You are "Kron AI", an elite, general-purpose intelligence designed to assist with any intellectual task. You possess comprehensive capability across all major fields including advanced computer science/coding, mathematics, scientific research, creative writing, business analysis, strategic marketing, data processing, and global general knowledge.
+
+Core Persona:
+- Professional, objective, yet exceptionally helpful and inspiring.
+- Avoid synthetic sci-fi jargon, status indicators, or synthetic metaphors. Speak as a highly capable elite general companion.
+- Format responses beautifully using highly structured, clean Markdown. Ensure code blocks include appropriate language syntax tags (e.g., \`\`\`typescript) and utilize clean lists, structured headings, and bold text for visual hierarchy.
+- When helping with coding, supply robust, production-ready code with helpful explanations.
+- When solving mathematics or complex logic, break down the process step-by-step.`;
+
+          if (memories && Array.isArray(memories) && memories.length > 0) {
+            const activeMemories = memories.filter(m => m && typeof m === "string" && m.trim().length > 0);
+            if (activeMemories.length > 0) {
+              systemPrompt += `\n\n[Persistent Context / User Preferences]:\n- ${activeMemories.join("\n- ")}`;
+            }
+          }
+
+          const response = await callWithRetry((model) =>
+            ai.models.generateContent({
+              model,
+              contents: messages.map((msg: any) => {
+                const parts: any[] = [];
+                
+                // Always ensure text part exists so that structural format is valid
+                parts.push({ text: msg.content || "" });
+
+                if (msg.files && Array.isArray(msg.files)) {
+                  msg.files.forEach((file: any) => {
+                    if (file.type === "image" && file.previewUrl) {
+                      const parsed = parseBase64DataUrl(file.previewUrl);
+                      if (parsed) {
+                        parts.push({
+                          inlineData: {
+                            mimeType: parsed.mimeType,
+                            data: parsed.data
+                          }
+                        });
+                      }
+                    } else if (file.type === "text" && file.content) {
+                      parts.push({
+                        text: `=== ATTACHED FILE NAME: ${file.name} ===\n${file.content}\n==================`
+                      });
+                    }
+                  });
+                }
+
+                return {
+                  role: msg.role === "assistant" ? "model" : (msg.role || "user"),
+                  parts: parts
+                };
+              }),
+              config: {
+                systemInstruction: systemPrompt,
+              },
+            })
+          );
+
+          return new Response(JSON.stringify({
+            message: { role: "assistant", content: response.text }
+          }), { status: 200, headers });
+        } catch (error: any) {
+          console.error('[CHAT ERROR]:', error);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
+        }
       }
 
       default: {
