@@ -40,7 +40,7 @@ function getAI(): GoogleGenAI {
 // Robust retry wrapper for Gemini
 async function callWithRetry<T>(
   fn: (model: string) => Promise<T>,
-  preferredModel = "gemini-2.1-flash",
+  preferredModel = "gemini-2.5-flash",
   retries = 3,
   delayMs = 1000
 ): Promise<T> {
