@@ -244,7 +244,7 @@ export default function DashboardMovieScript() {
       toast.success("Blockbuster screenplay generated & synced!");
     } catch (e: any) {
       console.error(e);
-      toast.error("We are experiencing high demand. Please wait a minute and try again, or report this issue if it keeps coming up.");
+      toast.error("High server demand. Please try your request again in a moment.");
     } finally {
       setIsGenerating(false);
     }
@@ -384,7 +384,7 @@ export default function DashboardMovieScript() {
       toast.success(`🎉 Veo 3.1 Production complete! ${videoDuration}s Video saved inside your library.`);
     } catch (e: any) {
       console.error(e);
-      toast.error("We are experiencing high demand. Please wait a minute and try again, or report this issue if it keeps coming up.");
+      toast.error("High server demand. Please try your request again in a moment.");
     } finally {
       setIsGeneratingVideo(false);
     }

@@ -78,12 +78,12 @@ async function callWithRetry<T>(
 const headers = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT",
   "Content-Type": "application/json"
 };
 
 export default async (req: Request) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === "OPTIONS" || (req as any).httpMethod === "OPTIONS") {
     return new Response(null, { status: 204, headers });
   }
 
@@ -125,7 +125,6 @@ Natural, non-cringe call-to-action.`;
     return new Response(JSON.stringify({ content: response.text }), { status: 200, headers });
   } catch (error: any) {
     console.error("Error in generate-script Netlify function:", error);
-    const fallback = `[KRON FALLBACK SCRIPT]\n\nTopic: Concept Generation\n\nHere is your custom viral concept script focusing on standard script outlines configured in a professional layout.\n\n[VISUAL] A high-energy countdown overlay tracking retention coefficients\n\n0:00 - Start your core hook with high energy!\n0:10 - Address standard problem bottlenecks.\n1:00 - Proactively map solution vectors.\n2:00 - Deliver final action CTA.`;
-    return new Response(JSON.stringify({ content: fallback, warning: "quota_exceeded" }), { status: 200, headers });
+    return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
   }
 };

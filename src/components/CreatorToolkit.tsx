@@ -316,7 +316,8 @@ export default function CreatorToolkit() {
 
         toast.success(`Detailed professional prompts compiled successfully! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend compilation response. Using high-fidelity local prompt generator.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -344,7 +345,7 @@ export default function CreatorToolkit() {
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -485,7 +486,8 @@ export default function CreatorToolkit() {
 
         toast.success(`Professional script compiled! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend script writer model response.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -513,7 +515,7 @@ export default function CreatorToolkit() {
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -599,7 +601,8 @@ export default function CreatorToolkit() {
         setThumbAnalyzed(true);
         toast.success(`Thumbnail attention prediction completed! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend thumbnail analyzer response.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -627,7 +630,7 @@ export default function CreatorToolkit() {
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -719,7 +722,8 @@ export default function CreatorToolkit() {
         setVideoAnalyzed(true);
         toast.success(`Brutally honest retention analysis loaded! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend short video analyzer response.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -747,7 +751,7 @@ export default function CreatorToolkit() {
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -842,7 +846,8 @@ export default function CreatorToolkit() {
 
         toast.success(`Viral caption pack prepared! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend caption generation response.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -870,37 +875,7 @@ export default function CreatorToolkit() {
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
-      const platformTagsMap: Record<string, string> = {
-        "TikTok": "#fyp #foryou #trending #viral #contentcreator #xyzbca #videotips",
-        "Instagram": "#explore #reels #trending #instagramreels #viralvideos #postoftheday",
-        "YouTube": "#shorts #viral #trending #youtube #growth #videomarketing #howtogeek",
-        "Facebook": "#viral #trending #facebookreels #fbreels #postoftheday #community",
-        "X / Twitter": "#trending #tech #innovation #growth #buildinpublic #business",
-        "LinkedIn": "#professional #strategy #leadership #personalbranding #networking #productivity"
-      };
-      
-      const tags = platformTagsMap[captionPlatform] || platformTagsMap["TikTok"];
-
-      setCaptionResult({
-        hookTitles: [
-          `How to approach ${captionTheme || "modern development"} like a professional studio`,
-          `Why 95% of creators fail at ${captionTheme || "audience retention"}`,
-          `The minimal framework behind ${captionTheme || "high-value assets"}`
-        ],
-        captionBody: `Most people treat ${captionTheme || "content creation"} like a roll of the dice. But professional creators treat it like elegant science. 
-
-Here is our daily 3-step action system for ${captionTheme || "creators"}:
-1. Deconstruct successful structures first.
-2. Establish a clear, high-contrast visual anchor within one second.
-3. Keep visual transitions synchronized with natural pauses in your speech.
-
-Save this for your next creator session, and follow along for the full framework.
-
-${tags}`,
-        engagementBooster: "Comment starter: Ask your audience 'Which of these three steps is currently missing from your workflow?' to launch direct conversations."
-      });
-      toast.success("Captions prepared successfully");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }
@@ -986,7 +961,8 @@ ${tags}`,
         setDetectorAnalyzed(true);
         toast.success(`Forensic scanning complete! ${cost} credits deducted.`);
       } else {
-        throw new Error("Failed backend forensic AI detector response.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "High server demand. Please try your request again in a moment.");
       }
     } catch (err: any) {
       console.error(err);
@@ -1014,55 +990,7 @@ ${tags}`,
       }
 
       // Drop precise error message as requested
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
-      // Heuristic custom fallback matching specified user bounds
-      const lowerName = detectorName.toLowerCase();
-      let aiPercent = 60;
-      let deepRate = 60;
-      let cat = "Likely AI / Deepfake";
-      let conf = "Moderate Risk Signature";
-
-      if (lowerName.includes("real") || lowerName.includes("organic") || lowerName.includes("face")) {
-        aiPercent = 10;
-        deepRate = 10;
-        cat = "Very Real / Authentic Capture";
-        conf = "Pristine Camera Signature";
-      } else if (lowerName.includes("ai") || lowerName.includes("deep") || lowerName.includes("fake") || lowerName.includes("gan") || Math.random() > 0.6) {
-        aiPercent = 100;
-        deepRate = 100;
-        cat = "Deep Content Generation Detected";
-        conf = "Absolute Forensic Match";
-      } else {
-        // mostly authentic
-        aiPercent = 20;
-        deepRate = 15;
-        cat = "Likely Authentic";
-        conf = "Organic Sensor Grain Confirmed";
-      }
-
-      setDetectorAnalysis({
-        aiPercentage: aiPercent,
-        category: cat,
-        confidence: conf,
-        deepfakeRating: deepRate,
-        aiTraces: aiPercent > 50 ? [
-          "Non-standard texture boundaries on edges of high illumination.",
-          "Over-smoothing of standard lens aberration layers.",
-          "Synthesizer noise alignment mismatch on vertical pixel line scans."
-        ] : [
-          "No major synthetic identifiers found within safe margin limits."
-        ],
-        realTraces: aiPercent <= 50 ? [
-          "Authentic sub-pixel chromatic distribution matching mechanical DSLR lenses.",
-          "Natural specular reflection maps indicating real lighting sources.",
-          "Slight motion blur matching consistent shutter time mechanics."
-        ] : [
-          "Standard lens noise structures are entirely artificial or simulated."
-        ],
-        subliminalAnalysis: `Fallback Analyzer checked. Detected key attributes mapping to a ${aiPercent}% probability of artificial content alteration. Surface gradients and spatial frequency textures align safely with our designated diagnostic score models.`
-      });
-      setDetectorAnalyzed(true);
-      toast.success("Forensics computed");
+      toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
       setLoading(false);
     }

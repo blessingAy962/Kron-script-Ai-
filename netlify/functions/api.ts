@@ -78,12 +78,12 @@ async function callWithRetry<T>(
 const headers = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT",
   "Content-Type": "application/json"
 };
 
 export default async (req: Request) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === "OPTIONS" || (req as any).httpMethod === "OPTIONS") {
     return new Response(null, { status: 204, headers });
   }
 
@@ -226,40 +226,11 @@ Desired Aspect Ratio: "${aspectRatio || "16:9"}"`;
           if (response.text) {
             return new Response(response.text, { status: 200, headers });
           }
-        } catch (err) {
-          console.error("Prompt-maker API failed, falling back:", err);
+          throw new Error("Empty response from AI model.");
+        } catch (err: any) {
+          console.error("Prompt-maker API failed:", err);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
-
-        // Fallback response:
-        return new Response(JSON.stringify({
-          imagePrompt: concept ? `A professional cinematic photograph focused on ${concept}, shot with an anamorphic lens, high contrast lighting, --ar ${aspectRatio || "16:9"}` : "A professional cinematic workspace with high contrast neon lights, highly detailed, photorealistic.",
-          videoPrompt: concept ? `Camera pushes in on ${concept}, high dynamic range, slow motion, cinematic pacing.` : "Camera sweeps slowly across a modern tech setup, sharp details, volumetric lighting.",
-          anatomy: {
-            layer1: "Layer 1: Concept: " + (concept || "General"),
-            layer2: "Layer 2: Setting: Professional studio workspace environment",
-            layer3: "Layer 3: Mood: Focused, tech-forward, high energy",
-            layer4: "Layer 4: Lighting: Chiaroscuro neon highlighting",
-            layer5: "Layer 5: Composition: Anamorphic perspective tracking",
-            layer6: "Layer 6: Platform: Optimized for specified engine"
-          },
-          scores: {
-            subjectClarity: 8,
-            environmentalDetail: 8,
-            lightingSpecification: 7,
-            moodAtmosphere: 8,
-            technicalStyle: 7,
-            platformOptimisation: 8,
-            uniquenessOriginality: 8,
-            negativeSpaceUse: 7,
-            totalScore: 61
-          },
-          suggestions: [
-            "Add detailed surface texture keywords (e.g., brushed magnesium or polished quartz).",
-            "Specify high-fidelity lens settings like '50mm focal depth with f/1.4 aperture'."
-          ],
-          structuredCinematic: "A beautifully controlled studio camera alignment moving continuously along a clean axis.",
-          platformSpecs: "Syntax formatting adjusted dynamically to maximize detail-extraction."
-        }), { status: 200, headers });
       }
 
       case "predictive-thumbnail-tester": {
@@ -383,38 +354,11 @@ Structure your JSON response exactly like this:
           if (response.text) {
             return new Response(response.text, { status: 200, headers });
           }
-        } catch (err) {
-          console.error("Thumbnail tester API failed, falling back:", err);
+          throw new Error("Empty response from AI model.");
+        } catch (err: any) {
+          console.error("Thumbnail tester API failed:", err);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
-
-        // Fallback response:
-        return new Response(JSON.stringify({
-          ctr: "6.8%",
-          attentionScore: 78,
-          scrollStopScore: 75,
-          curiosityScore: 82,
-          viralPotential: "Good (4-7%)",
-          conceptOverview: "The composition is visually strong with clear layout markers. Incorporating stronger text separation will further boost the scroll-stopping coefficient.",
-          viralPatternDetected: "Colour Anomaly",
-          criteriaScores: {
-            focalSubject: 8, curiosityGap: 8, contrastVisibility: 7, textClarity: 7,
-            colourHarmony: 8, emotionalExpression: 7, brandConsistency: 8, originality: 8,
-            mobileLegibility: 7, titleSynergy: 8
-          },
-          decisionTree: {
-            blurTest: "PASS: Main visual shapes stand out clearly.",
-            threeSecondRule: "PASS: Focus is drawn to the center elements immediately.",
-            mobilePreview: "WARNING: Small detail tags might slightly blend at lower sizes.",
-            curiosityTest: "PASS: High emotional contrast triggers interest.",
-            scrollTest: "PASS: Strong contrast ensures visibility in standard feeds."
-          },
-          corrections: [
-            "Add high contrast border offsets or black shadows behind key overlay typography.",
-            "Scale primary face/character focal point by an additional 15% to increase engagement.",
-            "Utilize a vibrant accent hue (such as electric neon-amber or yellow) to highlight the primary visual word."
-          ],
-          analysis: "Strong, scalable draft showing excellent high-efficiency viewer metrics."
-        }), { status: 200, headers });
       }
 
       case "enhance-media": {
@@ -591,9 +535,9 @@ Return your response as a JSON object matching this schema:
             })
           );
           return new Response(JSON.stringify({ content: response.text }), { status: 200, headers });
-        } catch (err) {
-          const fallbackString = `[KRON CINEMATIC PREVIEW]\n\nTitle: ${title}\nGenre: ${genre}\nLogline: ${logline}\n\n[BEAT 1: Opening Image]\nEstablish ordinary world boundaries. Scene setup of the main character facing high stakes.\n\n[BEAT 4: Inciting Incident]\nThe disruptor occurs. The protagonist is pulled into the central adventure.\n\n[BEAT 15: Final Image]\nA striking visual showing redemption and the new normal.`;
-          return new Response(JSON.stringify({ content: fallbackString, warning: "quota" }), { status: 200, headers });
+        } catch (err: any) {
+          console.error("Movie script generator API failed:", err);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
       }
 
@@ -639,14 +583,11 @@ Return your response as a JSON object matching this schema:
               script: parsed.caption || ""
             }), { status: 200, headers });
           }
-        } catch (err) {}
-
-        const fallbackCaption = {
-          hookTitles: [`Top secret strategy behind scaling ${idea}`],
-          caption: `Stop overcomplicating ${idea}. Focus entirely on high attention triggers to maximize social organic reach. #growthtips #contentcreator #socialmedia`,
-          engagementBooster: `Comment READY below and we will send you our advanced analytical pack.`
-        };
-        return new Response(JSON.stringify(fallbackCaption), { status: 200, headers });
+          throw new Error("Empty response from AI model.");
+        } catch (err: any) {
+          console.error("Script caption architect API failed:", err);
+          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
+        }
       }
 
       case "detect-ai-deepfake": {

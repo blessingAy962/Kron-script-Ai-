@@ -159,7 +159,7 @@ export default function DashboardScripts() {
       toast.success("Script generated successfully & saved to Firestore!");
     } catch (e: any) {
       console.error(e);
-      toast.error("We are experiencing high demand. Please wait a minute and try again, or report this issue if it keeps coming up.");
+      toast.error("High server demand. Please try your request again in a moment.");
     } finally {
       setIsGenerating(false);
     }

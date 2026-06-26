@@ -325,7 +325,7 @@ export default function DashboardVisionAI() {
       }
       
       // Dynamic high-demand user-facing warning
-      toast.error("We are experiencing high demand right now. Wait a few minutes. If this issue keeps coming, Report for support.");
+      toast.error("High server demand. Please try your request again in a moment.");
     } finally {
       setIsProcessing(false);
     }
