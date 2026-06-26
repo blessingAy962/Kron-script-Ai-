@@ -1467,6 +1467,16 @@ ${tags}`,
                         <pre className="whitespace-pre-wrap font-mono text-[10px] text-foreground leading-relaxed bg-card border border-border/50 p-3 rounded-xl">{promptResult.structuredCinematic}</pre>
                       </div>                 </div>
                     </div>
+                  ) : loading ? (
+                    <div className="border border-border rounded-3xl p-8 min-h-[350px] flex flex-col items-center justify-center text-center space-y-4 bg-muted/25 animate-pulse">
+                      <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                      <div className="space-y-1.5">
+                        <p className="font-display font-bold text-xs uppercase text-primary tracking-wider animate-pulse">(Please wait, AI is working...)</p>
+                        <p className="text-[11px] text-muted-foreground font-sans max-w-sm mx-auto">
+                          Analyzing media signatures, processing parameters, and writing optimized prompts...
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="border border-border rounded-3xl p-8 min-h-[350px] flex flex-col items-center justify-center text-center space-y-3 bg-muted/20">
                       <Sparkles className="h-10 w-10 text-muted-foreground/45 animate-pulse" />
@@ -2047,6 +2057,12 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
                     <div className="flex-1 overflow-y-auto max-h-[300px] bg-slate-950/80 border border-slate-800/60 p-4 rounded-xl font-mono text-xs leading-relaxed text-slate-300 select-text">
                       {scriptResult ? (
                         <pre className="whitespace-pre-wrap font-mono uppercase-none">{scriptResult}</pre>
+                      ) : loading ? (
+                        <div className="flex flex-col items-center justify-center text-center h-full text-indigo-400 py-12 animate-pulse">
+                          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin mb-2" />
+                          <p className="font-bold text-xs uppercase tracking-wider">(Please wait, AI is working...)</p>
+                          <p className="text-[9px] text-slate-450 mt-1">Analyzing character dynamics, building tension maps, and writing script...</p>
+                        </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center text-center h-full text-slate-500 py-12">
                           <Compass className="h-8 w-8 text-slate-700 mb-2 animate-bounce" />
@@ -2194,6 +2210,16 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
                           </ul>
                         </div>
 
+                      </div>
+                    ) : loading ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 animate-pulse">
+                        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                        <div className="space-y-1.5">
+                          <p className="font-display font-bold text-xs uppercase text-primary tracking-wider animate-pulse">(Please wait, AI is working...)</p>
+                          <p className="text-[11px] text-muted-foreground font-sans max-w-sm mx-auto">
+                            Performing visual element diagnostics, predicting scroll stop and viral potential...
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
@@ -2370,6 +2396,16 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
                           <p className="bg-card border border-border/60 p-3 rounded-xl leading-relaxed text-foreground font-medium text-[11px]">{videoAnalysis.detailedFeedback}</p>
                         </div>
 
+                      </div>
+                    ) : loading ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 animate-pulse">
+                        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                        <div className="space-y-1.5">
+                          <p className="font-display font-bold text-xs uppercase text-primary tracking-wider animate-pulse">(Please wait, AI is working...)</p>
+                          <p className="text-[11px] text-muted-foreground font-sans max-w-sm mx-auto">
+                            Calculating retention metrics, evaluating hook strength, and compiling video pacing suggestions...
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
@@ -2548,6 +2584,16 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
                       <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl font-sans text-[10px] text-muted-foreground flex gap-2">
                         <span className="text-indigo-600 font-bold font-mono">Tip to get comments:</span>
                         <span>{captionResult.engagementBooster}</span>
+                      </div>
+                    </div>
+                  ) : loading ? (
+                    <div className="border border-border rounded-3xl p-8 min-h-[350px] flex flex-col items-center justify-center text-center space-y-4 bg-muted/25 animate-pulse">
+                      <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                      <div className="space-y-1.5">
+                        <p className="font-display font-bold text-xs uppercase text-primary tracking-wider animate-pulse">(Please wait, AI is working...)</p>
+                        <p className="text-[11px] text-muted-foreground font-sans max-w-sm mx-auto">
+                          Drafting high-retention hook titles, formulating social media captions, and embedding hashtags...
+                        </p>
                       </div>
                     </div>
                   ) : (
@@ -2737,6 +2783,16 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
                         </div>
                       </div>
 
+                    </div>
+                  ) : loading ? (
+                    <div className="border border-border rounded-3xl p-8 min-h-[350px] flex flex-col items-center justify-center text-center space-y-4 bg-muted/25 animate-pulse">
+                      <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                      <div className="space-y-1.5">
+                        <p className="font-display font-bold text-xs uppercase text-primary tracking-wider animate-pulse">(Please wait, AI is working...)</p>
+                        <p className="text-[11px] text-muted-foreground font-sans max-w-sm mx-auto">
+                          Running sub-pixel chromatic frequency analysis and diagnosing synthetic model traces...
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="border border-border rounded-3xl p-8 min-h-[350px] flex flex-col items-center justify-center text-center space-y-3 bg-muted/20">
