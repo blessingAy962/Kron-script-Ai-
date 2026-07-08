@@ -1407,21 +1407,30 @@ export default function DashboardKronAI() {
                         )}
 
                         {/* Quick controls Hover overlay */}
-                        <div className="absolute right-1.5 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-white dark:bg-slate-950 py-1.5 pl-1.5 pr-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
+                          className="absolute right-1.5 top-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity flex items-center gap-0.5 bg-white dark:bg-slate-950 py-1.5 pl-1.5 pr-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm z-10"
+                        >
                           <button
                             onClick={(e) => handleTogglePin(t.id, e)}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
                             className={`p-1 rounded-md transition-all cursor-pointer ${
                               t.isPinned 
                                 ? "text-red-500 bg-red-50 dark:bg-red-500/10" 
                                 : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100"
                             }`}
-                            title={t.isPinned ? "Unpin thread" : "Pin message"}
+                            title={t.isPinned ? "Unpin thread" : "Pin thread"}
                           >
                             <Pin className="h-3 w-3" />
                           </button>
                           
                           <button
                             onClick={(e) => handleToggleArchive(t.id, e)}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
                             className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 transition-all cursor-pointer"
                             title={t.isArchived ? "Unarchive chat" : "Backup to Archive"}
                           >
@@ -1431,6 +1440,8 @@ export default function DashboardKronAI() {
                           {!isEditing && (
                             <button
                               onClick={(e) => handleStartRename(t.id, t.title, e)}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onTouchEnd={(e) => e.stopPropagation()}
                               className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 transition-all cursor-pointer"
                               title="Rename Thread"
                             >
@@ -1440,6 +1451,8 @@ export default function DashboardKronAI() {
 
                           <button
                             onClick={(e) => handleDeleteThread(t.id, e)}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
                             className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
                             title="Delete Chat Thread"
                           >

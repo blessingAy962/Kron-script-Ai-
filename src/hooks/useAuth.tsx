@@ -61,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userRef = doc(db, "user_coins", fUser.uid);
       const userSnap = await getDoc(userRef);
       const isAdminEmail = fUser.email === "starbruce91@gmail.com";
+      const isCreatorBrandMarketer = fUser.email === "jerahmeelstudio@gmail.com";
 
       if (!userSnap.exists()) {
         await setDoc(userRef, {
@@ -68,9 +69,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           user_id: fUser.uid,
           email: fUser.email || "",
           user_email: fUser.email || "",
-          coins: isAdminEmail ? 150000 : 150, // 150 Free credits daily as requested
-          plan: isAdminEmail ? "pro_creator" : "free",
+          coins: isAdminEmail ? 150000 : (isCreatorBrandMarketer ? 50000 : 150), // 50k for brand marketer creator plan
+          plan: isAdminEmail ? "pro_creator" : (isCreatorBrandMarketer ? "creator" : "free"),
           plan_status: "active",
+          is_premium: isCreatorBrandMarketer ? true : false,
           last_reset_time: Date.now(),
           referral_count: 0,
           referred_emails: [],
@@ -112,6 +114,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           updatePayload.coins = Math.max(snapData.coins ?? 0, 150000);
           updatePayload.plan = "pro_creator";
           updatePayload.plan_status = "active";
+        }
+        // Auto upgrade brand marketer if they exist but don't have the creator/pro_creator plan yet
+        if (isCreatorBrandMarketer && snapData.plan !== "creator" && snapData.plan !== "pro_creator") {
+          updatePayload.plan = "creator";
+          updatePayload.plan_status = "active";
+          updatePayload.is_premium = true;
+          updatePayload.coins = Math.max(snapData.coins ?? 0, 50000);
         }
         if (Object.keys(updatePayload).length > 0) {
           await setDoc(userRef, updatePayload, { merge: true });

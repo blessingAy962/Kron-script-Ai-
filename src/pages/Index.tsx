@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CinematicLoader } from "@/src/components/CinematicLoader";
 import { SupportChat } from "@/src/components/SupportChat";
+import { BlogSection } from "@/src/components/BlogSection";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/src/hooks/useAuth";
 import { Header } from "@/src/components/Header";
@@ -1519,6 +1520,11 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      {/* ==========================================
+          TRENDING AI BLOGS SECTION
+         ========================================== */}
+      <BlogSection />
 
       {/* ==========================================
           FAQ ACCORDION SECTION

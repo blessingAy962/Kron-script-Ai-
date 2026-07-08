@@ -213,7 +213,7 @@ export default function DashboardCourse() {
 
   const handleCopyLink = () => {
     if (!user) return;
-    const refLink = `https://kronscriptai.netlify.app/auth?ref=${user.uid}`;
+    const refLink = `https://kronscriptai.online/auth?ref=${user.uid}`;
     navigator.clipboard.writeText(refLink);
     setCopied(true);
     toast.success("Your exclusive Affiliate Referral Link copied to clipboard!");
@@ -739,7 +739,7 @@ export default function DashboardCourse() {
                 <input 
                   type="text" 
                   readOnly 
-                  value={user ? `https://kronscriptai.netlify.app/auth?ref=${user.uid}` : "Please log in to load referral link..."}
+                  value={user ? `https://kronscriptai.online/auth?ref=${user.uid}` : "Please log in to load referral link..."}
                   className="bg-background/80 border border-border/80 px-4 py-3 rounded-xl text-xs font-mono text-muted-foreground flex-1 select-all outline-none"
                 />
                 <button
