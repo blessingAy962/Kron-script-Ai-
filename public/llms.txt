@@ -1,0 +1,38 @@
+# Kron Script AI
+> AI-powered script-writing and cinematic generation studio.
+
+## About
+Kron Script AI is a flagship web application developed by AuRA Tech, founded and led by CEO Blessing Ay. It provides creators, YouTubers, and directors with advanced AI tools to write professional scripts, solve process bottlenecks, and generate cinematic video assets for the No Camera Studio ecosystem.
+
+## Key Features
+- **Script Generation:** High-retention, structurally optimized scripts for YouTube and film.
+- **Process Problem Solving:** AI-assisted workflow optimization for digital creators.
+- **Cinematic Rendering:** Direct integration for generating AI movie assets.
+- **Vision AI:** Advanced image analysis and generation capabilities.
+- **Voice Synthesis:** Professional-grade AI voice generation for dubbing and narration.
+- **Credit System:** Tiered plans (Free, Creator, Pro Creator) utilizing a coin-based economy.
+
+## Architecture & Infrastructure
+- **Frontend:** React, TypeScript, Tailwind CSS, Vite.
+- **Backend/Database:** Firebase (Firestore, Authentication, Cloud Functions) and Node.js.
+- **Deployment:** Cloud Run (Google Cloud Platform).
+
+## Navigation & Tools
+- `/` : Main Studio Interface and Prompt Input
+- `/auth` : Secure User Authentication
+- `/dashboard` : Centralized User Overview and Activity
+- `/dashboard/scripts` : YouTube and Short-Form Script Generation
+- `/dashboard/moviescript` : Professional Cinematic Screenplay Creation
+- `/dashboard/kron-ai` : Primary Kron AI Chat Interface
+- `/dashboard/vision` : Vision AI Image Generation and Editing
+- `/dashboard/voices` : AI Voice Cloning and Synthesis
+- `/dashboard/images` : Image Asset Management and History
+- `/dashboard/history` : Comprehensive Generation Logs
+- `/dashboard/pricing` : Plan Upgrades and Coin Management
+- `/dashboard/course` : Educational Resources for AI Creators
+- `/admin` : Administrative Controls
+- `/blog` : 3,000-word technical breakdowns and embedded AI movie showcases
+- `/credits` : User credit management and task-rewarded ad generation
+
+## Target Audience
+Digital creators, prompt engineers, and AI filmmakers looking for a premium B2B studio environment.

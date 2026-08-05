@@ -87,9 +87,32 @@
         "isArchived": { "type": "boolean" }
       },
       "required": ["id", "user_id", "title", "createdAt", "messages"]
+    },
+    "blog_post": {
+      "title": "Blog Post or News",
+      "description": "AuRa Tech blog posts and news updates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "readTime": { "type": "string" },
+        "author": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "previewText": { "type": "string" },
+        "expandedText": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "category", "title", "date", "readTime", "author", "imageUrl", "previewText", "expandedText", "created_at"]
     }
   },
   "firestore": {
+    "/blogs/{blogId}": {
+      "schema": "blog_post",
+      "description": "Persistent blog and news articles"
+    },
     "/images/{imageId}": {
       "schema": "image",
       "description": "Public or user-specific image assets"

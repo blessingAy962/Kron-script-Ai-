@@ -907,9 +907,48 @@ export default function CreatorToolkit() {
     }
     const reader = new FileReader();
     reader.onloadend = () => {
-      setDetectorFile(reader.result as string);
+      const resultStr = reader.result as string;
+      if (file.type.startsWith("image/")) {
+        const img = new Image();
+        img.src = resultStr;
+        img.onload = () => {
+          // Downscale to max 1600px for robust performance and bypass Netlify 6MB payload limits
+          const MAX_DIM = 1600;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress as JPEG at 0.85 quality
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+            setDetectorFile(compressedBase64);
+            setDetectorMimeType("image/jpeg");
+          } else {
+            setDetectorFile(resultStr);
+            setDetectorMimeType(file.type);
+          }
+        };
+        img.onerror = () => {
+          setDetectorFile(resultStr);
+          setDetectorMimeType(file.type);
+        };
+      } else {
+        setDetectorFile(resultStr);
+        setDetectorMimeType(file.type);
+      }
       setDetectorName(file.name);
-      setDetectorMimeType(file.type);
       setDetectorAnalyzed(false);
       setDetectorAnalysis(null);
     };

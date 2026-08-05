@@ -158,8 +158,46 @@ export default function DashboardVisionAI() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setOriginalFile(event.target?.result as string);
-      toast.success(`${isVid ? "Video" : "Photo"} loaded into Kron Vision Matrix.`);
+      const resultStr = event.target?.result as string;
+      if (isImg) {
+        const img = new Image();
+        img.src = resultStr;
+        img.onload = () => {
+          // Downscale to max 1600px to robustly avoid Netlify 6MB serverless payload limit
+          const MAX_DIM = 1600;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+            setOriginalFile(compressedBase64);
+            setFileType("image");
+          } else {
+            setOriginalFile(resultStr);
+          }
+          toast.success("Photo loaded into Kron Vision Matrix.");
+        };
+        img.onerror = () => {
+          setOriginalFile(resultStr);
+          toast.success("Photo loaded into Kron Vision Matrix.");
+        };
+      } else {
+        setOriginalFile(resultStr);
+        toast.success("Video loaded into Kron Vision Matrix.");
+      }
     };
     reader.readAsDataURL(file);
   };

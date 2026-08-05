@@ -30,7 +30,9 @@ import {
   getDocs, 
   setDoc, 
   doc, 
-  onSnapshot
+  onSnapshot,
+  deleteDoc,
+  serverTimestamp
 } from "@/src/lib/firebase";
 import { useAuth } from "@/src/hooks/useAuth";
 
@@ -81,6 +83,90 @@ export default function DashboardAdmin() {
 
   // Manual logs added by admin actions
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
+
+  // Blogs & News publisher states
+  const [blogTitle, setBlogTitle] = useState("");
+  const [blogCategory, setBlogCategory] = useState("TECH FUTURES");
+  const [blogAuthor, setBlogAuthor] = useState("Blessing Ay");
+  const [blogReadTime, setBlogReadTime] = useState("5 min read");
+  const [blogImageUrl, setBlogImageUrl] = useState("");
+  const [blogPreviewText, setBlogPreviewText] = useState("");
+  const [blogExpandedText, setBlogExpandedText] = useState("");
+  const [isPublishingBlog, setIsPublishingBlog] = useState(false);
+  const [blogsList, setBlogsList] = useState<any[]>([]);
+
+  // Fetch blogs to display and manage them
+  useEffect(() => {
+    if (!isAuthorizedEmail) return;
+    const unsub = onSnapshot(collection(db, "blogs"), (snap) => {
+      const blogs: any[] = [];
+      snap.forEach((docSnap) => {
+        blogs.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort blogs by created_at descending if available, or just as they come
+      setBlogsList(blogs);
+    });
+    return () => unsub();
+  }, [isAuthorizedEmail]);
+
+  const handlePublishBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blogTitle || !blogPreviewText || !blogExpandedText) {
+      toast.error("Please fill in the title, preview text, and expanded story.");
+      return;
+    }
+
+    setIsPublishingBlog(true);
+    try {
+      const slug = blogTitle.toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "");
+      
+      const blogId = slug || `blog-${Date.now()}`;
+      const blogRef = doc(db, "blogs", blogId);
+
+      const formattedDate = new Date().toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      });
+
+      await setDoc(blogRef, {
+        id: blogId,
+        category: blogCategory,
+        title: blogTitle,
+        date: formattedDate,
+        readTime: blogReadTime,
+        author: blogAuthor,
+        imageUrl: blogImageUrl || "https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=800&auto=format&fit=crop",
+        previewText: blogPreviewText,
+        expandedText: blogExpandedText,
+        created_at: serverTimestamp()
+      });
+
+      toast.success("Blog post successfully published and is now live!");
+      setBlogTitle("");
+      setBlogPreviewText("");
+      setBlogExpandedText("");
+      setBlogImageUrl("");
+    } catch (err: any) {
+      console.error("Failed to publish blog:", err);
+      toast.error("Error publishing blog post. Check Firestore rules.");
+    } finally {
+      setIsPublishingBlog(false);
+    }
+  };
+
+  const handleDeleteBlog = async (blogId: string) => {
+    if (!confirm("Are you sure you want to delete this blog post?")) return;
+    try {
+      await deleteDoc(doc(db, "blogs", blogId));
+      toast.success("Blog post deleted successfully.");
+    } catch (err) {
+      console.error("Failed to delete blog:", err);
+      toast.error("Failed to delete blog post.");
+    }
+  };
 
   // Real users: Filter out admin accounts, texting test accounts, and registry sandbox records
   const realUsers = usersList.filter(u => {
@@ -847,6 +933,143 @@ export default function DashboardAdmin() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* BLOGS & NEWS PUBLISHING PANEL */}
+      <div className="glass-card border border-border rounded-3xl p-5 md:p-8 bg-card text-left space-y-6">
+        <div>
+          <span className="text-[9px] font-mono font-bold tracking-widest text-muted-foreground block uppercase">AuRa Tech Publisher</span>
+          <h3 className="font-display font-black uppercase text-xs text-foreground flex items-center gap-1.5">
+            <Edit2 className="h-4 w-4 text-purple-400" /> KRON AI Blogs & News Publisher
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5 font-body">
+            Create, publish, and manage live news articles and tutorial blogs.
+          </p>
+        </div>
+
+        <form onSubmit={handlePublishBlog} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Article Title</label>
+              <input 
+                type="text" 
+                value={blogTitle}
+                onChange={(e) => setBlogTitle(e.target.value)}
+                placeholder="e.g., Mastering Cinematic Video AI"
+                className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Category</label>
+                <select 
+                  value={blogCategory}
+                  onChange={(e) => setBlogCategory(e.target.value)}
+                  className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans"
+                >
+                  <option value="TECH FUTURES">TECH FUTURES</option>
+                  <option value="CREATIVE SCIENCE">CREATIVE SCIENCE</option>
+                  <option value="PROMPT ENGINEERING">PROMPT ENGINEERING</option>
+                  <option value="ANNOUNCEMENTS">ANNOUNCEMENTS</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Read Time</label>
+                <input 
+                  type="text" 
+                  value={blogReadTime}
+                  onChange={(e) => setBlogReadTime(e.target.value)}
+                  placeholder="e.g., 5 min read"
+                  className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Author Name</label>
+                <input 
+                  type="text" 
+                  value={blogAuthor}
+                  onChange={(e) => setBlogAuthor(e.target.value)}
+                  placeholder="e.g., Blessing Ay"
+                  className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Cover Image URL</label>
+                <input 
+                  type="text" 
+                  value={blogImageUrl}
+                  onChange={(e) => setBlogImageUrl(e.target.value)}
+                  placeholder="Unsplash / Google Drive URL"
+                  className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Preview Hook Text (Markdown/HTML supported)</label>
+              <textarea 
+                rows={5}
+                value={blogPreviewText}
+                onChange={(e) => setBlogPreviewText(e.target.value)}
+                placeholder="Write a highly-retaining 1-2 paragraph hook for the frontpage preview..."
+                className="w-full text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans leading-relaxed resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 flex flex-col justify-between">
+            <div className="space-y-1 flex-1 flex flex-col">
+              <label className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Expanded Full Story Content (Supports full Markdown)</label>
+              <textarea 
+                value={blogExpandedText}
+                onChange={(e) => setBlogExpandedText(e.target.value)}
+                placeholder="Write the rest of your 1000-3000 word article here. Supports paragraphs, lists, bold text, etc..."
+                className="w-full flex-1 min-h-[220px] text-xs text-foreground bg-muted/40 border border-border p-3 rounded-xl focus:outline-none focus:border-primary font-sans leading-relaxed resize-none"
+              />
+            </div>
+
+            <button 
+              type="submit"
+              disabled={isPublishingBlog}
+              className="w-full py-3.5 rounded-xl bg-primary hover:opacity-95 text-white font-bold text-center text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+            >
+              {isPublishingBlog ? "Publishing story to cloud..." : "Publish Blog Story"}
+            </button>
+          </div>
+        </form>
+
+        {/* List of custom blogs published */}
+        <div className="border-t border-border/40 pt-6 space-y-3">
+          <h4 className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">Published Stories ({blogsList.length})</h4>
+          {blogsList.length === 0 ? (
+            <p className="text-xs text-zinc-400 font-body">No custom blogs published yet. The site is currently using the 3 default high-retaining stories.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {blogsList.map((blog) => (
+                <div key={blog.id} className="p-4 border border-border bg-muted/10 rounded-2xl flex items-center justify-between text-xs gap-4 font-mono text-left">
+                  <div className="truncate">
+                    <span className="text-[8px] bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 rounded uppercase font-bold">{blog.category}</span>
+                    <span className="block font-bold text-foreground truncate mt-1" title={blog.title}>{blog.title}</span>
+                    <span className="block text-[10px] text-muted-foreground">{blog.date} • {blog.author}</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => handleDeleteBlog(blog.id)}
+                    className="p-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all cursor-pointer bg-card font-sans font-bold"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modern adjustment overlay card (Modal) */}

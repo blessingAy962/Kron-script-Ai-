@@ -118,7 +118,29 @@ service cloud.firestore {
              (!('isArchived' in data) || data.isArchived is bool);
     }
 
+    function isValidBlogPost(data) {
+      return data.keys().hasAll(['id', 'category', 'title', 'date', 'readTime', 'author', 'imageUrl', 'previewText', 'expandedText', 'created_at']) &&
+             data.keys().size() >= 10 && data.keys().size() <= 11 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.category is string && data.category.size() <= 128 &&
+             data.title is string && data.title.size() <= 256 &&
+             data.date is string && data.date.size() <= 64 &&
+             data.readTime is string && data.readTime.size() <= 64 &&
+             data.author is string && data.author.size() <= 128 &&
+             data.imageUrl is string && data.imageUrl.size() <= 2048 &&
+             data.previewText is string && data.previewText.size() <= 50000 &&
+             data.expandedText is string && data.expandedText.size() <= 100000 &&
+             data.created_at is timestamp &&
+             (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 2048));
+    }
+
     // Individual Collection Security Rules match blocks
+
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow create, update: if isValidBlogPost(incoming());
+      allow delete: if true;
+    }
 
     match /images/{imageId} {
       allow read, delete: if isSignedIn() && (resource == null || existing().user_id == request.auth.uid);

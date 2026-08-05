@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Copyright from "./pages/Copyright";
+import MoreBlogs from "./pages/MoreBlogs";
 import NotFound from "./pages/NotFound";
 import { TouchPhysicsCanvas } from "./components/TouchPhysicsCanvas";
 import { safeGetItem, safeSetItem } from "./lib/safeStorage";
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/copyright" element={<Copyright />} />
+          <Route path="/more-blogs" element={<MoreBlogs />} />
 
           {/* Secure High-Density Creator Workspace Dashboard */}
           <Route

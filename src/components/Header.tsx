@@ -40,22 +40,28 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 bg-muted/30 p-1 rounded-full border border-border">
           <a 
-            href="#features" 
+            href="/#features" 
             className="px-4 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground transition-all uppercase tracking-tight"
           >
             Capabilities
           </a>
           <a 
-            href="#toolkit" 
+            href="/#toolkit" 
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-primary hover:text-primary bg-primary/5 transition-all uppercase tracking-tight flex items-center gap-1.2"
           >
             <Sparkles className="h-3 w-3" /> Creator Toolkit
           </a>
           <a 
-            href="#pricing" 
+            href="/#pricing" 
             className="px-4 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground transition-all uppercase tracking-tight"
           >
             Operational Tiers
+          </a>
+          <a 
+            href="/#blog" 
+            className="px-4 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground transition-all uppercase tracking-tight"
+          >
+            Blogs & News
           </a>
         </nav>
 
@@ -106,25 +112,32 @@ export default function Header() {
       {mobileMenuOpen && (
         <div className="absolute top-18 left-4 right-4 z-50 p-5 rounded-2xl glass-card border border-border flex flex-col gap-4 animate-in fade-in slide-in-from-top-6 duration-200 md:hidden">
           <a
-            href="#features"
+            href="/#features"
             onClick={() => setMobileMenuOpen(false)}
             className="p-3 text-xs uppercase font-extrabold text-foreground border-b border-border/30"
           >
             Capabilities
           </a>
           <a
-            href="#toolkit"
+            href="/#toolkit"
             onClick={() => setMobileMenuOpen(false)}
             className="p-3 text-xs uppercase font-extrabold text-primary border-b border-border/30 flex items-center gap-1"
           >
             <Sparkles className="h-3.5 w-3.5" /> Creator Toolkit
           </a>
           <a
-            href="#pricing"
+            href="/#pricing"
             onClick={() => setMobileMenuOpen(false)}
             className="p-3 text-xs uppercase font-extrabold text-foreground border-b border-border/30"
           >
             Operational Tiers
+          </a>
+          <a
+            href="/#blog"
+            onClick={() => setMobileMenuOpen(false)}
+            className="p-3 text-xs uppercase font-extrabold text-foreground border-b border-border/30"
+          >
+            Blogs & News
           </a>
 
           {user ? (
