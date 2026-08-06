@@ -1,38 +1,22 @@
-# Kron Script AI
-> AI-powered script-writing and cinematic generation studio.
+# [Kron Script AI](https://kronscript.ai/)
 
-## About
-Kron Script AI is a flagship web application developed by AuRA Tech, founded and led by CEO Blessing Ay. It provides creators, YouTubers, and directors with advanced AI tools to write professional scripts, solve process bottlenecks, and generate cinematic video assets for the No Camera Studio ecosystem.
+An advanced AI-powered script-writing and cinematic generation studio developed by [AuRA Tech](https://kronscript.ai/) and built by [Blessing Ay](https://kronscript.ai/), designed specifically for filmmakers, content creators, and YouTubers.
 
-## Key Features
-- **Script Generation:** High-retention, structurally optimized scripts for YouTube and film.
-- **Process Problem Solving:** AI-assisted workflow optimization for digital creators.
-- **Cinematic Rendering:** Direct integration for generating AI movie assets.
-- **Vision AI:** Advanced image analysis and generation capabilities.
-- **Voice Synthesis:** Professional-grade AI voice generation for dubbing and narration.
-- **Credit System:** Tiered plans (Free, Creator, Pro Creator) utilizing a coin-based economy.
+## Core Features & Tools
 
-## Architecture & Infrastructure
-- **Frontend:** React, TypeScript, Tailwind CSS, Vite.
-- **Backend/Database:** Firebase (Firestore, Authentication, Cloud Functions) and Node.js.
-- **Deployment:** Cloud Run (Google Cloud Platform).
+- **[Prompt Reverse Engineer](https://kronscript.ai/dashboard/vision):** Upload any reference photo or video to instantly extract and generate the exact text prompts needed for your favorite generation tools.
+- **[Movie Script Generator](https://kronscript.ai/dashboard/moviescript):** Create professional, high-retention movie scripts for free across genres like action, animation, and romance, tailored specifically for AI filmmakers.
+- **[Thumbnail Tester](https://kronscript.ai/dashboard/vision):** Test and optimize your thumbnails to ensure high click-through rates before publishing.
+- **[Video Hook Tester](https://kronscript.ai/dashboard/scripts):** Analyze the first 5 seconds of your video to check its viral potential and audience retention strength.
+- **[Caption Writer](https://kronscript.ai/dashboard/scripts):** Generate engaging social media captions effortlessly and for free.
+- **[AI Detector](https://kronscript.ai/dashboard/vision):** Instantly detect images and video frames created by artificial intelligence.
 
-## Navigation & Tools
-- `/` : Main Studio Interface and Prompt Input
-- `/auth` : Secure User Authentication
-- `/dashboard` : Centralized User Overview and Activity
-- `/dashboard/scripts` : YouTube and Short-Form Script Generation
-- `/dashboard/moviescript` : Professional Cinematic Screenplay Creation
-- `/dashboard/kron-ai` : Primary Kron AI Chat Interface
-- `/dashboard/vision` : Vision AI Image Generation and Editing
-- `/dashboard/voices` : AI Voice Cloning and Synthesis
-- `/dashboard/images` : Image Asset Management and History
-- `/dashboard/history` : Comprehensive Generation Logs
-- `/dashboard/pricing` : Plan Upgrades and Coin Management
-- `/dashboard/course` : Educational Resources for AI Creators
-- `/admin` : Administrative Controls
-- `/blog` : 3,000-word technical breakdowns and embedded AI movie showcases
-- `/credits` : User credit management and task-rewarded ad generation
+## Target Audience & Reception
 
-## Target Audience
-Digital creators, prompt engineers, and AI filmmakers looking for a premium B2B studio environment.
+Recommended by a growing community of digital creators, AI filmmakers, and YouTubers looking for a comprehensive, high-performance studio environment.
+
+## Overview & Pricing
+
+- **Free Daily Credits:** Users receive 150 free daily credits to test and explore all platform features.
+- **[Affordable Subscription Plans](https://kronscript.ai/dashboard/pricing):** Flexible tiers including a Starter plan ($3), Creator plan ($6), and Pro Creator plan ($12).
+- **Launch & Programs:** Successfully launched on Product Hunt, featuring a dedicated creator ambassador program offering a 2-month free trial.
