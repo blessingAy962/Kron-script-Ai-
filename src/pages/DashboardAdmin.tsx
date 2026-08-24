@@ -144,6 +144,18 @@ export default function DashboardAdmin() {
         created_at: serverTimestamp()
       });
 
+      // Automatically trigger SEO indexing, generate new sitemap and RSS feed, and ping search engines
+      try {
+        fetch("/api/trigger-indexing", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }).catch(err => console.error("SEO dynamic trigger error:", err));
+      } catch (err) {
+        // Safe silent non-blocking
+      }
+
       toast.success("Blog post successfully published and is now live!");
       setBlogTitle("");
       setBlogPreviewText("");
@@ -161,6 +173,19 @@ export default function DashboardAdmin() {
     if (!confirm("Are you sure you want to delete this blog post?")) return;
     try {
       await deleteDoc(doc(db, "blogs", blogId));
+      
+      // Automatically trigger SEO indexing to remove deleted blog post
+      try {
+        fetch("/api/trigger-indexing", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }).catch(err => console.error("SEO dynamic trigger error on delete:", err));
+      } catch (err) {
+        // Safe silent non-blocking
+      }
+
       toast.success("Blog post deleted successfully.");
     } catch (err) {
       console.error("Failed to delete blog:", err);

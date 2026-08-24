@@ -1,7 +1,7 @@
 import { useState, useRef, ChangeEvent, DragEvent, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/src/hooks/useAuth";
-import { db, handleFirestoreError, OperationType, doc, onSnapshot, setDoc, addDoc, collection, serverTimestamp } from "@/src/lib/firebase";
+import { auth, db, handleFirestoreError, OperationType, doc, onSnapshot, setDoc, addDoc, collection, serverTimestamp } from "@/src/lib/firebase";
 import { 
   Sparkles, 
   Video, 
@@ -69,6 +69,38 @@ export default function CreatorToolkit() {
     });
     return () => unsub();
   }, [user]);
+
+  const consumeCredits = async (cost: number) => {
+    if (!user) throw new Error("No active user session.");
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error("Could not acquire identity credentials.");
+    const resp = await fetch("/api/consume-credits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, cost })
+    });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || "Failed to authorize credit deduction.");
+    }
+    const data = await resp.json();
+    return data.transactionId;
+  };
+
+  const refundCredits = async (transactionId: string) => {
+    if (!user || !transactionId) return;
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+      await fetch("/api/refund-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, transactionId })
+      });
+    } catch (err) {
+      console.warn("Failed to refund credits:", err);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<"prompter" | "scriptwriter" | "thumbnail" | "video" | "captions" | "detector">("prompter");
   const [loading, setLoading] = useState(false);
@@ -248,12 +280,14 @@ export default function CreatorToolkit() {
       computedVideoMime = promptVideo.split(";base64,")[0].split(":")[1];
     }
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -336,12 +370,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -427,12 +458,14 @@ export default function CreatorToolkit() {
     setLoading(true);
     setScriptResult("");
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -506,12 +539,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -570,12 +600,14 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -621,12 +653,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -690,12 +719,14 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -742,12 +773,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -787,12 +815,14 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -866,12 +896,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -972,12 +999,14 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins from Firestore
+    // 1. Deduct dynamic coins via secure server-side transaction
+    let txId = "";
     try {
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, { coins: Math.max(0, balance - cost) }, { merge: true });
-    } catch (dbErr) {
-      console.warn("Deduction storage failed:", dbErr);
+      txId = await consumeCredits(cost);
+    } catch (consumeErr: any) {
+      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
+      setLoading(false);
+      return;
     }
 
     try {
@@ -1020,12 +1049,9 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund
-      try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-      } catch (refundErr) {
-        console.warn("Failed to rollback refund balance:", refundErr);
+      // Safe refund via secure server-side transaction
+      if (txId) {
+        await refundCredits(txId);
       }
 
       // Drop precise error message as requested

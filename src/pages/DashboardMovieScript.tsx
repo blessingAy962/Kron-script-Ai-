@@ -24,7 +24,7 @@ import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/src/hooks/useAuth";
-import { db } from "@/src/lib/firebase";
+import { auth, db } from "@/src/lib/firebase";
 import {
   collection,
   query,
@@ -294,14 +294,26 @@ export default function DashboardMovieScript() {
     setIsGeneratingVideo(true);
     toast.info(`Initializing Veo 3.1 engine... deducting ${cost} KRON coins.`);
 
+    let transactionId = "";
     try {
-      // 1. Deduct coins from user_coins document
-      const coinsRef = doc(db, "user_coins", user.uid);
-      await setDoc(coinsRef, {
-        coins: userCoins - cost,
-      }, { merge: true });
+      // 1. Deduct coins via secure server-side transaction
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Could not acquire identity credentials.");
+      const consumeResp = await fetch("/api/consume-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, cost }),
+      });
 
-            // 2. Trigger Veo 3.1 video generator
+      if (!consumeResp.ok) {
+        const consumeErr = await consumeResp.json().catch(() => ({}));
+        throw new Error(consumeErr.error || "Failed to authorize credit deduction.");
+      }
+
+      const consumeData = await consumeResp.json();
+      transactionId = consumeData.transactionId;
+
+      // 2. Trigger Veo 3.1 video generator
       const resp = await fetch("/api/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,8 +325,14 @@ export default function DashboardMovieScript() {
       });
 
       if (!resp.ok) {
-        // Rollback coins on failure
-        await setDoc(coinsRef, { coins: userCoins }, { merge: true });
+        // Rollback coins on failure via secure server-side transaction
+        if (transactionId) {
+          await fetch("/api/refund-credits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken, transactionId }),
+          }).catch(err => console.warn("Refund failed:", err));
+        }
         throw new Error("Veo 3.1 API engine offline or busy. Coins refunded.");
       }
 

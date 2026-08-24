@@ -12,7 +12,7 @@ import {
   Award,
   ArrowUpRight
 } from "lucide-react";
-import { db } from "@/src/lib/firebase";
+import { auth, db } from "@/src/lib/firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useAuth } from "@/src/hooks/useAuth";
 import { toast } from "sonner";
@@ -111,14 +111,20 @@ export function DashboardStatsSection() {
         return;
       }
       try {
-        const pRef = doc(db, "user_coins", user.uid);
-        await setDoc(pRef, {
-          coins: (profile.coins ?? 150) + 2500,
-          bonus_2500_claimed: true
-        }, { merge: true });
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Could not acquire identity credentials.");
+        const resp = await fetch("/api/grant-reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, rewardType: "milestone_2500" })
+        });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to claim milestone bonus");
+        }
         toast.success("🎉 Added 2,500 bonus credits to your account for the 50 referrals milestone!");
-      } catch (e) {
-        toast.error("Database connection failure.");
+      } catch (e: any) {
+        toast.error(e.message || "Database connection failure.");
       }
     } else if (milestone === 100) {
       if (refsCount < 100) {
@@ -130,14 +136,20 @@ export function DashboardStatsSection() {
         return;
       }
       try {
-        const pRef = doc(db, "user_coins", user.uid);
-        await setDoc(pRef, {
-          coins: (profile.coins ?? 150) + 5000,
-          bonus_5000_claimed: true
-        }, { merge: true });
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Could not acquire identity credentials.");
+        const resp = await fetch("/api/grant-reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, rewardType: "milestone_5000" })
+        });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to claim milestone bonus");
+        }
         toast.success("🎉 Added 5,000 bonus credits to your account for the 100 referrals milestone!");
-      } catch (e) {
-        toast.error("Database connection failure.");
+      } catch (e: any) {
+        toast.error(e.message || "Database connection failure.");
       }
     }
   };

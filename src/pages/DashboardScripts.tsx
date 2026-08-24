@@ -32,41 +32,11 @@ export default function DashboardScripts() {
   const [loading, setLoading] = useState(true);
   const [userPlan, setUserPlan] = useState<string>("free");
 
-  // Sync user plan and handle successful checkout callback
+  // Sync user plan and handle real-time subscription state query listener
   useEffect(() => {
     if (!user) return;
 
-    // 1. Check for success parameters from Whop checkout redirect
-    const params = new URLSearchParams(window.location.search);
-    const isSuccess = params.get("success") === "true" || 
-                      params.get("checkout") === "success" || 
-                      params.get("status") === "success" ||
-                      params.get("whop") === "success";
-
-    if (isSuccess) {
-      const activateUserSubscription = async () => {
-        try {
-          const userRef = doc(db, "user_coins", user.uid);
-          await setDoc(userRef, {
-            plan: "creator",
-            plan_status: "active",
-            coins: 25000,
-            license_acquired_at: new Date()
-          }, { merge: true });
-
-          toast.success("🎉 Whop payment verified successfully! Your Creator License has been activated and the Script Generator is now fully unlocked.");
-          
-          // Clean the query parameter from address bar
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-        } catch (err) {
-          console.error("Failed to auto-activate Whop plan in scripts view:", err);
-        }
-      };
-      activateUserSubscription();
-    }
-
-    // 2. Real-time subscription state query listener
+    // Real-time subscription state query listener
     const coinsRef = doc(db, "user_coins", user.uid);
     const unsub = onSnapshot(coinsRef, (snap) => {
       if (snap.exists()) {

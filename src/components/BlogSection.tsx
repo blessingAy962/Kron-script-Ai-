@@ -117,8 +117,6 @@ export function BlogSection() {
     return () => unsub();
   }, []);
 
-  const allBlogPosts = customBlogs;
-
   return (
     <section id="blog" className="py-24 px-6 relative overflow-hidden bg-background scroll-mt-24">
       {/* Background Accent Gradients */}
@@ -132,138 +130,94 @@ export function BlogSection() {
             AURA TECH JOURNAL & INSIGHTS
           </span>
           <h2 className="text-3xl md:text-5xl font-display font-black uppercase tracking-tight text-foreground">
-            TRENDING <span className="text-primary">AI STORIES</span>
+            NEWS <span className="text-primary">&amp; BLOG'S</span>
           </h2>
           <p className="text-xs md:text-sm text-muted-foreground max-w-xl mx-auto font-sans leading-relaxed">
-            Stay ahead of the curve. Elite industry breakdowns, viral pacing science, and advanced video AI prompt formulas carefully curated by AuRa Tech.
+            Stay ahead of the curve. Access elite industry breakdowns, viral pacing science, and advanced video AI prompt formulas on our dedicated Journal.
           </p>
         </div>
 
-        {/* Blog Post List */}
-        <div className="space-y-12">
-          {loading ? (
-            <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-              <span className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <span className="text-xs uppercase font-bold tracking-wider text-muted-foreground">Loading active AuRa tech journal...</span>
+        {/* Minimal Non-Crowded Spotlight and Quick Trend Directory */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+          {/* Main Editorial Spotlight Card */}
+          <div className="md:col-span-7 glass-card border border-border/80 rounded-[2.5rem] bg-card/60 overflow-hidden group transition-all hover:border-primary/20 hover:shadow-xl p-8 flex flex-col justify-between relative min-h-[380px] text-left">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="space-y-4">
+              <span className="text-[9px] font-mono font-black uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg">
+                CINEMATIC AI
+              </span>
+              <h3 className="text-xl md:text-3xl font-display font-extrabold uppercase tracking-tight text-foreground leading-tight group-hover:text-primary transition-colors">
+                RORO — Bypassing Cameras: How Blessing Ay, Kron Script AI, & No Camera Studio Crafted 2026's Cinematic Masterpiece
+              </h3>
+              <p className="text-xs md:text-sm text-muted-foreground/90 font-sans leading-relaxed max-w-lg">
+                An in-depth breakdown of the groundbreaking RORO trailer. Discover how Blessing Ay utilized Gemini Omni, ElevenLabs, Suno, and Kron Script AI to bypass cameras, crew, and physical sets.
+              </p>
             </div>
-          ) : allBlogPosts.length === 0 ? (
-            <div className="py-20 text-center text-muted-foreground text-xs font-mono">
-              Awaiting editorial publications...
+            <div className="pt-8">
+              <Link
+                to="/more-blogs?id=roro-concept-trailer"
+                className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-primary hover:underline"
+              >
+                Read full breakdown <ArrowUpRight className="h-4 w-4" />
+              </Link>
             </div>
-          ) : (
-            allBlogPosts.map((post) => {
-              const isExpanded = expandedId === post.id;
-              return (
-                <motion.article 
-                  key={post.id}
-                  layout="position"
-                  className="glass-card border border-border/80 rounded-[2.5rem] bg-card/60 overflow-hidden group transition-all hover:border-primary/20 hover:shadow-xl hover:shadow-black/5 text-left"
-                >
-                {/* Header Image or Playable Video Cover */}
-                <div className="relative aspect-[16/9] w-full overflow-hidden border-b border-border/60 bg-black">
-                  {post.videoUrl ? (
-                    <iframe
-                      src={post.videoUrl}
-                      title={post.title}
-                      className="w-full h-full border-0 absolute inset-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <>
-                      <img 
-                        src={post.imageUrl} 
-                        alt={post.title} 
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-700 ease-out"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
-                    </>
-                  )}
-                  <div className="absolute top-6 left-6 z-10">
-                    <span className="text-[9px] font-mono font-black uppercase tracking-widest bg-black/80 backdrop-blur-md text-primary border border-primary/30 px-3 py-1.5 rounded-lg">
-                      {post.category}
-                    </span>
-                  </div>
-                </div>
+          </div>
 
-                <div className="p-8 md:p-12 space-y-6">
-                  {/* Meta Tags & Title */}
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-muted-foreground font-mono">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5 text-primary" />
-                        <span>{post.date}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-primary" />
-                        <span>{post.readTime}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5 text-primary" />
-                        <span>{post.author}</span>
-                      </div>
+          {/* Compact Trend Directory (No full post nesting, extremely tidy) */}
+          <div className="md:col-span-5 flex flex-col justify-between gap-6 text-left">
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-mono font-black uppercase tracking-widest text-muted-foreground">
+                Trending Publications
+              </h4>
+              <div className="space-y-3">
+                {[
+                  {
+                    id: "africa-ai-lab",
+                    category: "TECH FUTURES",
+                    title: "Google's Africa Applied AI Lab: Hunt for Unicorns",
+                    readTime: "15 min read"
+                  },
+                  {
+                    id: "neuroscience-pacing",
+                    category: "CREATIVE SCIENCE",
+                    title: "The Neuroscience of the First 3 Seconds: Viral Retention",
+                    readTime: "10 min read"
+                  },
+                  {
+                    id: "prompt-engineering",
+                    category: "PROMPT ENGINEERING",
+                    title: "Mastering Cinematic Prompt Engineering in 2026",
+                    readTime: "5 min read"
+                  }
+                ].map((post) => (
+                  <Link
+                    key={post.id}
+                    to={`/more-blogs?id=${post.id}`}
+                    className="flex flex-col p-5 rounded-2xl border border-border/60 bg-card/40 hover:bg-card/80 hover:border-primary/20 transition-all duration-300 group"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <span className="text-[8px] font-mono font-bold text-primary tracking-wider uppercase">
+                        {post.category}
+                      </span>
+                      <span className="text-[9px] font-mono text-muted-foreground">
+                        {post.readTime}
+                      </span>
                     </div>
-
-                    <h3 className="text-xl md:text-3xl font-display font-extrabold uppercase tracking-tight text-foreground group-hover:text-primary transition-colors leading-tight">
+                    <h5 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors mt-2 font-display uppercase tracking-tight line-clamp-1">
                       {post.title}
-                    </h3>
-                  </div>
+                    </h5>
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-                  {/* Public Preview Text */}
-                  <div className="text-sm md:text-base text-muted-foreground/90 font-sans leading-relaxed space-y-4 max-w-4xl">
-                    {post.previewText}
-                  </div>
-
-                  {/* Expandable Section */}
-                  <AnimatePresence initial={false}>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <div className="text-sm md:text-base text-muted-foreground/90 font-sans leading-relaxed space-y-4 max-w-4xl">
-                          {post.expandedText}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Interactive Trigger Button */}
-                  <div className="pt-4 flex justify-start">
-                    <button
-                      onClick={() => toggleExpand(post.id)}
-                      className="px-6 py-3 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 text-xs font-mono font-bold text-foreground hover:text-primary transition-all duration-300 flex items-center gap-2 cursor-pointer"
-                    >
-                      {isExpanded ? (
-                        <>
-                          Show Less <ChevronUp className="h-4 w-4 animate-bounce" />
-                        </>
-                      ) : (
-                        <>
-                          Read Full Story <ChevronDown className="h-4 w-4 animate-bounce" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </motion.article>
-            );
-          })
-          )}
-        </div>
-
-        {/* View More Blogs Button */}
-        <div className="pt-8 text-center flex justify-center">
-          <Link
-            to="/more-blogs"
-            className="px-8 py-4 rounded-2xl border border-primary/20 hover:border-primary/50 bg-primary/5 hover:bg-primary/10 text-xs font-mono font-bold uppercase tracking-wider text-primary hover:text-primary transition-all duration-300 flex items-center gap-2 cursor-pointer shadow-lg shadow-primary/5 hover:shadow-primary/10"
-          >
-            View more blogs & news <ArrowUpRight className="h-4 w-4" />
-          </Link>
+            <Link
+              to="/more-blogs"
+              className="w-full text-center px-6 py-4 rounded-2xl border border-primary/20 hover:border-primary/50 bg-primary/5 hover:bg-primary/10 text-xs font-mono font-bold uppercase tracking-wider text-primary transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-primary/5 hover:shadow-primary/10"
+            >
+              View Full News <BookOpen className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>

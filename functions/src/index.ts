@@ -12,60 +12,56 @@ if (!admin.apps.length) {
 
 // Set up String parameter for GEMINI_API_KEY
 const geminiApiKey = defineString("GEMINI_API_KEY", {
-  default: "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY"
+  default: ""
 });
 
 const app = express();
 
 // Securely enable CORS to allow the frontend to interact with the functions endpoints
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ 
+  limit: "50mb",
+  verify: (req: any, res: any, buf: Buffer) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Get Active Secret API Key
 function getAPIKey(): string {
   try {
     const val = geminiApiKey.value();
-    if (val && val !== "MY_GEMINI_API_KEY" && val !== "MOCK_KEY" && val !== "undefined" && val.trim() !== "") {
+    if (val && val !== "MY_GEMINI_API_KEY" && val !== "MOCK_KEY" && val !== "undefined" && val.trim() !== "" && val !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
       return val;
     }
   } catch (e) {
     // Fall back to process.env if params is not ready
   }
   const envKey = process.env.GEMINI_API_KEY;
-  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "") {
+  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "" && envKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
     return envKey;
   }
-  return "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY";
+  return "";
 }
 
 // Lazy initialization of Gemini SDK
 let aiClient: GoogleGenAI | null = null;
-let sandboxClient: GoogleGenAI | null = null;
 let userApiKeyQuotaExceeded = false;
 let hasGeminiImageQuota = true;
 
 function getAI(): GoogleGenAI {
   const userKey = getAPIKey();
-  const isCustom = userKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY";
-
-  if (isCustom && !userApiKeyQuotaExceeded) {
-    if (!aiClient) {
-      aiClient = new GoogleGenAI({
-        apiKey: userKey,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-      });
-    }
-    return aiClient;
+  if (!userKey) {
+    throw new Error("GEMINI_API_KEY is not configured in the functions environment.");
   }
 
-  if (!sandboxClient) {
-    sandboxClient = new GoogleGenAI({
-      apiKey: "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY",
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: userKey,
       httpOptions: { headers: { "User-Agent": "aistudio-build" } },
     });
   }
-  return sandboxClient;
+  return aiClient;
 }
 
 // Robust retry wrapper for Gemini
@@ -115,52 +111,178 @@ function handleEndpointError(res: any, error: any, featureName: string) {
 
 // --- Endpoints ---
 
+// Allowed server-side plan definitions
+interface WhopPlanConfig {
+  planId: string;
+  coinsToAdd: number;
+}
+
+const TRUSTED_PLANS: Record<string, WhopPlanConfig> = {
+  "starter": { planId: "starter", coinsToAdd: 5000 },
+  "creator": { planId: "creator", coinsToAdd: 25000 },
+  "pro-creator": { planId: "pro_creator", coinsToAdd: 100000 },
+  "pro_creator": { planId: "pro_creator", coinsToAdd: 100000 }
+};
+
+import * as crypto from "crypto";
+
 // Whop secure payment webhook to credit coin balances
-app.post("/api/webhook/whop", async (req, res) => {
+app.post("/api/webhook/whop", async (req: any, res) => {
   try {
-    console.log("[WHOP WEBHOOK] Received payload:", JSON.stringify(req.body));
-    
-    // Extract userId from metadata parameters securely
-    const userId = req.body.metadata?.userId || 
-                   req.body.data?.metadata?.userId || 
-                   req.body.data?.passthrough || 
-                   req.body.data?.state ||
-                   req.body.state ||
-                   req.body.passport?.userId;
+    const rawBodyBuffer = req.rawBody;
+    const rawBody = rawBodyBuffer ? rawBodyBuffer.toString("utf8") : "";
+
+    // 1. Signature & Replay Protection Verification
+    const webhookId = (req.headers["webhook-id"] || req.headers["Webhook-Id"] || "").toString();
+    const webhookTimestamp = (req.headers["webhook-timestamp"] || req.headers["Webhook-Timestamp"] || "").toString();
+    const webhookSignature = (req.headers["webhook-signature"] || req.headers["Webhook-Signature"] || "").toString();
+
+    if (!webhookId || !webhookTimestamp || !webhookSignature) {
+      console.warn("[WHOP WEBHOOK] Missing signature headers.");
+      return res.status(401).json({ error: "Missing webhook headers" });
+    }
+
+    // Timestamp verification (replay protection - 5 minutes)
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const timestampNum = parseInt(webhookTimestamp, 10);
+    if (isNaN(timestampNum) || Math.abs(nowSecs - timestampNum) > 5 * 60) {
+      console.warn(`[WHOP WEBHOOK] Rejected: Stale webhook timestamp (${webhookTimestamp}).`);
+      return res.status(401).json({ error: "Timestamp is stale or invalid" });
+    }
+
+    // Signature verification using Whop Webhook Secret
+    const webhookSecret = process.env.WHOP_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("[WHOP WEBHOOK] WHOP_WEBHOOK_SECRET is not configured in the server environment variables.");
+      return res.status(500).json({ error: "Server misconfiguration" });
+    }
+
+    try {
+      const cleanSecret = webhookSecret.replace(/^whsec_/, "");
+      const secretBuffer = Buffer.from(cleanSecret, "base64");
+      const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+      const hmac = crypto.createHmac("sha256", secretBuffer);
+      hmac.update(signedContent);
+      const expectedSignature = hmac.digest("base64");
+
+      // Verify matching signature
+      const passedSignatures = webhookSignature.split(" ");
+      let verified = false;
+      for (const sig of passedSignatures) {
+        const parts = sig.split(",");
+        if (parts.length === 2 && parts[0] === "v1") {
+          const receivedSig = parts[1];
+          const expectedBuffer = Buffer.from(expectedSignature, "base64");
+          const receivedBuffer = Buffer.from(receivedSig, "base64");
+          if (expectedBuffer.length === receivedBuffer.length) {
+            if (crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
+              verified = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!verified) {
+        console.warn("[WHOP WEBHOOK] Invalid webhook signature detected.");
+        return res.status(401).json({ error: "Invalid webhook signature" });
+      }
+    } catch (sigErr) {
+      console.error("[WHOP WEBHOOK] Exception during signature computation:", sigErr);
+      return res.status(401).json({ error: "Invalid signature payload" });
+    }
+
+    // 2. Parse payload safely (should already be parsed by express.json if verify succeeded)
+    const payload = req.body || {};
+
+    // 3. Process only intended verified event types
+    const action = (payload.action || "").toString().toLowerCase();
+    const isTargetEvent = action === "payment.succeeded" || action === "membership.went_valid" || action === "membership.activated" || action === "test.event";
+    if (!isTargetEvent) {
+      console.log(`[WHOP WEBHOOK] Ignored irrelevant webhook action: '${action}'`);
+      return res.status(200).json({ success: true, message: "Event type ignored" });
+    }
+
+    // 4. Derive the application user identity securely from verified event's metadata
+    const userId = payload.metadata?.userId || 
+                   payload.data?.metadata?.userId || 
+                   payload.data?.passthrough || 
+                   payload.data?.state ||
+                   payload.state ||
+                   payload.passport?.userId;
 
     if (!userId) {
-      console.warn("[WHOP WEBHOOK] No userId or state detected in payload.");
-      return res.status(200).json({ error: "Missing userId or state parameters in Whop checkout" });
+      console.warn("[WHOP WEBHOOK] No userId detected in verified event metadata.");
+      return res.status(400).json({ error: "Missing userId in payload metadata" });
     }
 
-    let planId = "starter";
-    let coinsToAdd = 5000;
+    // 5. Validate the payment/plan against server-owned allowlist of real Whop plan IDs
+    const rawPlanIdentifier = (
+      payload.plan_id ||
+      payload.plan?.id ||
+      payload.data?.plan_id ||
+      payload.data?.plan?.id ||
+      payload.data?.plan?.slug ||
+      payload.data?.product_id ||
+      payload.data?.product?.id ||
+      payload.data?.product?.slug ||
+      payload.product_id ||
+      ""
+    ).toString().toLowerCase().trim();
 
-    const amount = Number(req.body.amount || req.body.data?.amount || req.body.data?.price || req.body.data?.pricing?.amount || req.body.payment?.amount);
-    const productName = String(req.body.product_name || req.body.data?.product?.name || req.body.data?.plan?.name || "").toLowerCase();
+    let matchedPlan = TRUSTED_PLANS[rawPlanIdentifier];
 
-    if (productName.includes("pro") || amount === 12 || amount === 1200) {
-      planId = "pro_creator";
-      coinsToAdd = 100000;
-    } else if (productName.includes("creator") || amount === 6 || amount === 600) {
-      planId = "creator";
-      coinsToAdd = 25000;
-    } else if (productName.includes("starter") || amount === 3 || amount === 300) {
-      planId = "starter";
-      coinsToAdd = 5000;
-    }
+    // Safe fallback check inside allowlist keys using name patterns
+    if (!matchedPlan) {
+      const productName = (
+        payload.product_name || 
+        payload.data?.product?.name || 
+        payload.data?.plan?.name || 
+        ""
+      ).toString().toLowerCase();
 
-    console.log(`[WHOP WEBHOOK] User '${userId}' credited with plan '${planId}' adding ${coinsToAdd} coins.`);
-
-    const firestore = admin.firestore();
-    const userRef = firestore.collection("user_coins").doc(userId);
-    
-    await firestore.runTransaction(async (transaction) => {
-      const sfDoc = await transaction.get(userRef);
-      let currentCoins = 150;
-      if (sfDoc.exists) {
-        currentCoins = sfDoc.data()?.coins ?? 150;
+      if (productName.includes("pro-creator") || productName.includes("pro_creator") || productName.includes("pro creator")) {
+        matchedPlan = TRUSTED_PLANS["pro-creator"];
+      } else if (productName.includes("creator")) {
+        matchedPlan = TRUSTED_PLANS["creator"];
+      } else if (productName.includes("starter")) {
+        matchedPlan = TRUSTED_PLANS["starter"];
       }
+    }
+
+    if (!matchedPlan) {
+      console.warn(`[WHOP WEBHOOK] Rejected webhook: Plan/Product identifier '${rawPlanIdentifier}' not found in trusted plans allowlist.`);
+      return res.status(400).json({ error: "Untrusted or invalid plan identifier" });
+    }
+
+    const { planId, coinsToAdd } = matchedPlan;
+
+    // 6. Make fulfillment idempotent and concurrency-safe using Firestore Transaction
+    const firestore = admin.firestore();
+    const webhookRef = firestore.collection("processed_webhooks").doc(webhookId);
+    const userRef = firestore.collection("user_coins").doc(userId);
+
+    const transactionResult = await firestore.runTransaction(async (transaction) => {
+      const webhookDoc = await transaction.get(webhookRef);
+      if (webhookDoc.exists) {
+        return { alreadyProcessed: true };
+      }
+
+      const userDoc = await transaction.get(userRef);
+      let currentCoins = 150;
+      if (userDoc.exists) {
+        currentCoins = userDoc.data()?.coins ?? 150;
+      }
+
+      // Atomically mark webhook as processed to prevent replay/duplicate deliveries
+      transaction.set(webhookRef, {
+        processed_at: admin.firestore.FieldValue.serverTimestamp(),
+        userId,
+        planId,
+        coinsAdded: coinsToAdd
+      });
+
+      // Grant entitlement securely
       transaction.set(userRef, {
         coins: currentCoins + coinsToAdd,
         plan: planId,
@@ -168,12 +290,22 @@ app.post("/api/webhook/whop", async (req, res) => {
         is_premium: true,
         license_acquired_at: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+
+      return { alreadyProcessed: false };
     });
+
+    if (transactionResult.alreadyProcessed) {
+      console.log(`[WHOP WEBHOOK] Idempotency hit: Webhook '${webhookId}' already handled.`);
+      return res.status(200).json({ success: true, duplicated: true, message: "Webhook already processed" });
+    }
+
+    // Log only safe operational metadata, preserving user privacy and API credentials
+    console.log(`[WHOP WEBHOOK] Processed ID '${webhookId}' for user '${userId}', credited plan '${planId}' adding ${coinsToAdd} coins.`);
 
     return res.status(200).json({ success: true, userId, planId, coinsAdded: coinsToAdd });
   } catch (error: any) {
-    console.error("[WHOP WEBHOOK] Error handling Whop webhook:", error);
-    return res.status(500).json({ error: "Internal Server Error", details: error.message });
+    console.error("[WHOP WEBHOOK] Exception inside webhook handler:", error.message);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

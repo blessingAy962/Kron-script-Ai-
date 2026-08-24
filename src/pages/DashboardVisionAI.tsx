@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/src/hooks/useAuth";
 import { Link } from "react-router-dom";
-import { db } from "@/src/lib/firebase";
+import { auth, db } from "@/src/lib/firebase";
 import { 
   doc, 
   getDoc, 
@@ -278,17 +278,25 @@ export default function DashboardVisionAI() {
       }
     }, 1200);
 
+    let transactionId = "";
     try {
-      // 1. Deduct dynamic coins from firestore
-      const coinsRef = doc(db, "user_coins", user.uid);
-      const snapBalance = await getDoc(coinsRef);
-      const currentVal = snapBalance.exists() ? (snapBalance.data().coins ?? 100) : 100;
-      const updatedBalance = Math.max(0, currentVal - cost);
-      
-      await setDoc(coinsRef, {
-        coins: updatedBalance
-      }, { merge: true });
-      setBalance(updatedBalance);
+      // 1. Deduct coins via secure server-side transaction
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Could not acquire identity credentials.");
+      const consumeResp = await fetch("/api/consume-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, cost }),
+      });
+
+      if (!consumeResp.ok) {
+        const consumeErr = await consumeResp.json().catch(() => ({}));
+        throw new Error(consumeErr.error || "Failed to authorize credit deduction.");
+      }
+
+      const consumeData = await consumeResp.json();
+      transactionId = consumeData.transactionId;
+      setBalance(consumeData.updatedBalance);
 
       // 2. Call backend /api/enhance-media with options
       const res = await fetch("/api/enhance-media", {
@@ -353,11 +361,22 @@ export default function DashboardVisionAI() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund on absolute crash
+      // Safe refund on absolute crash via secure server-side transaction
       try {
-        const coinsRef = doc(db, "user_coins", user.uid);
-        await setDoc(coinsRef, { coins: balance }, { merge: true });
-        setBalance(balance);
+        if (transactionId) {
+          const idToken = await auth.currentUser?.getIdToken();
+          if (idToken) {
+            const refundResp = await fetch("/api/refund-credits", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken, transactionId }),
+            });
+            if (refundResp.ok) {
+              const refundData = await refundResp.json();
+              setBalance(refundData.updatedBalance);
+            }
+          }
+        }
       } catch (refundErr) {
         console.error("Refund syncing fault: ", refundErr);
       }

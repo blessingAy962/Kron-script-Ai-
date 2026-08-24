@@ -193,7 +193,11 @@ service cloud.firestore {
                        isValidUserCoins(incoming()) &&
                        incoming().user_id == userId &&
                        incoming().created_at == request.time &&
-                       (incoming().get('is_admin', false) == false || request.auth.token.email == "starbruce91@gmail.com");
+                       (
+                         (request.auth.token.email == "starbruce91@gmail.com" && incoming().coins <= 150000 && incoming().plan == "pro_creator" && incoming().get('is_admin', false) == true) ||
+                         (request.auth.token.email == "jerahmeelstudio@gmail.com" && incoming().coins <= 50000 && incoming().plan == "creator" && incoming().get('is_premium', false) == true && incoming().get('is_admin', false) == false) ||
+                         (incoming().coins <= 150 && incoming().plan == "free" && incoming().get('is_premium', false) == false && incoming().get('is_admin', false) == false && incoming().get('isPaid', false) == false && incoming().get('tier', 'free') == 'free')
+                       );
                        
       allow update: if (isOwner(userId) || isAdmin()) &&
                        isValidUserCoins(incoming()) &&
@@ -202,8 +206,8 @@ service cloud.firestore {
                        (
                          isAdmin() ||
                          (
-                           // Ensure regular users cannot modify administrative flag
-                           incoming().get('is_admin', false) == existing().get('is_admin', false)
+                           // Standard users cannot modify any payment, plan, premium, or coin balance fields
+                           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins', 'plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])
                          )
                        );
     }

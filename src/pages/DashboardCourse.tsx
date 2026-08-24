@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/src/hooks/useAuth";
-import { db, handleFirestoreError, OperationType } from "@/src/lib/firebase";
+import { auth, db, handleFirestoreError, OperationType } from "@/src/lib/firebase";
 import CelebrationConfetti from "../components/CelebrationConfetti";
 import AcademyViewer from "../components/AcademyViewer";
 import { 
@@ -190,15 +190,21 @@ export default function DashboardCourse() {
           toast.info("Task reward already claimed for this module.");
         } else {
           try {
-            const profileRef = doc(db, "user_coins", user.uid);
-            await updateDoc(profileRef, {
-              coins: increment(250),
-              [claimKey]: true
+            const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) throw new Error("Could not acquire identity credentials.");
+            const resp = await fetch("/api/grant-reward", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken, rewardType: "challenge", challengeId: mod.id })
             });
+            if (!resp.ok) {
+              const errData = await resp.json().catch(() => ({}));
+              throw new Error(errData.error || "Failed to grant reward");
+            }
             toast.success(`🎉 Task Reward Unlocked! Added +250 credits to your workspace.`);
-          } catch (err) {
+          } catch (err: any) {
             console.error("Failed to credit task reward:", err);
-            toast.error("Failed to credit your reward. Please check your network connection.");
+            toast.error(err.message || "Failed to credit your reward. Please check your network connection.");
           }
         }
       }
@@ -229,17 +235,17 @@ export default function DashboardCourse() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const refDocRef = doc(db, "referrals", "ref_" + user.uid);
-      await updateDoc(refDocRef, {
-        status: "verified"
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Could not acquire identity credentials.");
+      const resp = await fetch("/api/grant-reward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, rewardType: "verification" })
       });
-
-      // Update their own coin status to active/verified
-      const profileRef = doc(db, "user_coins", user.uid);
-      await updateDoc(profileRef, {
-        is_verified_creator: true,
-        coins: increment(100) // Grant small starter bonus credits for active verification
-      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to verify account");
+      }
 
       toast.dismiss();
       toast.success("Account verified successfully! Your referrer has been credited, and +100 bonus credits added to your workspace!");
@@ -350,14 +356,20 @@ export default function DashboardCourse() {
         return;
       }
       try {
-        const pRef = doc(db, "user_coins", user.uid);
-        await updateDoc(pRef, {
-          coins: increment(2500),
-          bonus_2500_claimed: true
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Could not acquire identity credentials.");
+        const resp = await fetch("/api/grant-reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, rewardType: "milestone_2500" })
         });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to claim milestone");
+        }
         toast.success("🎉 milestone claim activated! Allocated +2500 Kron Credits to your live balance!");
-      } catch (e) {
-        toast.error("Credit sync failed: Check network standard.");
+      } catch (e: any) {
+        toast.error(e.message || "Credit sync failed: Check network standard.");
       }
     } else if (milestone === 100) {
       if (refsCount < 100) {
@@ -369,14 +381,20 @@ export default function DashboardCourse() {
         return;
       }
       try {
-        const pRef = doc(db, "user_coins", user.uid);
-        await updateDoc(pRef, {
-          coins: increment(5000),
-          bonus_5000_claimed: true
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Could not acquire identity credentials.");
+        const resp = await fetch("/api/grant-reward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, rewardType: "milestone_5000" })
         });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to claim milestone");
+        }
         toast.success("🎉 milestone claim activated! Allocated +5000 Kron Credits to your live balance!");
-      } catch (e) {
-        toast.error("Credit sync failed: Check network standard.");
+      } catch (e: any) {
+        toast.error(e.message || "Credit sync failed: Check network standard.");
       }
     }
   };
@@ -1151,15 +1169,21 @@ export default function DashboardCourse() {
                   toast.info("Course completion reward already claimed.");
                 } else {
                   try {
-                    const profileRef = doc(db, "user_coins", user.uid);
-                    await updateDoc(profileRef, {
-                      coins: increment(1000),
-                      course_completed_reward_claimed: true
+                    const idToken = await auth.currentUser?.getIdToken();
+                    if (!idToken) throw new Error("Could not acquire identity credentials.");
+                    const resp = await fetch("/api/grant-reward", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ idToken, rewardType: "course_completed" })
                     });
+                    if (!resp.ok) {
+                      const errData = await resp.json().catch(() => ({}));
+                      throw new Error(errData.error || "Failed to claim graduation reward");
+                    }
                     toast.success("🎉 Congratulations on Graduating! Added +1,000 bonus credits to your workspace!");
-                  } catch (err) {
+                  } catch (err: any) {
                     console.error("Failed to credit course completion reward:", err);
-                    toast.error("Failed to credit graduation reward. Please check your network.");
+                    toast.error(err.message || "Failed to credit graduation reward. Please check your network.");
                   }
                 }
               }

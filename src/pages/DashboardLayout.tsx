@@ -5,7 +5,7 @@ import { Terminal, Menu, X, Sparkles, Coins, HelpCircle } from "lucide-react";
 import ThemeToggle from "@/src/components/ThemeToggle";
 import { SettingsMenu } from "@/src/components/SettingsMenu";
 import { useAuth } from "@/src/hooks/useAuth";
-import { db } from "@/src/lib/firebase";
+import { auth, db } from "@/src/lib/firebase";
 import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 
 export default function DashboardLayout() {
@@ -25,8 +25,8 @@ export default function DashboardLayout() {
         const coinsVal = data.coins ?? 150;
         setBalance(coinsVal);
 
-        // 3. 30-DAY / CANCEL DOWNGRADE:
-        // On app load, if (now > expiresAt) OR (status == 'canceled'), force DB to: {tier: 'free', isPaid: false}.
+        // 3. 30-DAY / CANCEL DOWNGRADE & Core 24-hour Auto Reset logic for free credits
+        // All of these are processed securely on the server-side to prevent client-side credential/entitlement tampering.
         const expiresAt = data.expiresAt;
         const planStatusVal = data.status || data.plan_status;
         let needsDowngrade = false;
@@ -42,26 +42,6 @@ export default function DashboardLayout() {
           }
         }
 
-        if (needsDowngrade && data.plan !== "free") {
-          try {
-            await setDoc(coinsRef, {
-              plan: "free",
-              plan_status: "active",
-              tier: "free",
-              isPaid: false,
-              status: "active"
-            }, { merge: true });
-            
-            import("sonner").then(({ toast }) => {
-              toast.info("Subscription expired or canceled. Reverted license to Free Tier.");
-            });
-          } catch (downgradeErr) {
-            console.warn("Failed to automatically downgrade subscription on expiry:", downgradeErr);
-          }
-          return; // Allow the next cycle to handle reset/bootstrap
-        }
-
-        // Core 24-hour Auto Reset logic for free credits
         const lastReset = data.last_reset_time;
         const now = Date.now();
         const oneDayMs = 24 * 60 * 60 * 1000;
@@ -76,21 +56,29 @@ export default function DashboardLayout() {
           }
         }
 
-        if (shouldReset) {
-          const isFreePlan = !data.plan || data.plan === "free";
-          const updatePayload: any = {
-            last_reset_time: now
+        if ((needsDowngrade && data.plan !== "free") || shouldReset) {
+          const syncAccountOnServer = async () => {
+            try {
+              const idToken = await auth.currentUser?.getIdToken();
+              if (!idToken) return;
+              const resp = await fetch("/api/daily-reset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken })
+              });
+              if (resp.ok) {
+                const resData = await resp.json();
+                if (resData.downgraded) {
+                  import("sonner").then(({ toast }) => {
+                    toast.info("Subscription expired or canceled. Reverted license to Free Tier.");
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to sync account state on server:", err);
+            }
           };
-          if (isFreePlan) {
-            updatePayload.coins = 150; // resets standard free balance to exactly 150
-            updatePayload.plan = "free";
-            updatePayload.plan_status = "active";
-          }
-          try {
-            await setDoc(coinsRef, updatePayload, { merge: true });
-          } catch (resetErr) {
-            console.warn("Failed to reset daily coins automatically:", resetErr);
-          }
+          syncAccountOnServer();
         }
       } else {
         // Bootstrap missing user coin profiles
@@ -126,57 +114,18 @@ export default function DashboardLayout() {
     const successParam = params.get("success");
     const failedParam = params.get("failed");
     const cancelParam = params.get("cancel");
-    const planParam = params.get("plan");
 
     if (successParam === "true") {
-      const handleSuccessfulPayment = async () => {
-        try {
-          const purchasedPlan = planParam || "creator";
-          // Convert hyphens like "pro-creator" to standard underscore structure
-          const planId = purchasedPlan === "pro-creator" ? "pro_creator" : purchasedPlan;
-          
-          const planCoinsMap: Record<string, number> = {
-            starter: 5000,
-            creator: 25000,
-            pro_creator: 100000,
-            "pro-creator": 100000
-          };
-          const coinsToAdd = planCoinsMap[planId] || 25000;
+      import("sonner").then(({ toast }) => {
+        toast.success("Payment session completed! Your account benefits are being securely processed by our servers.");
+      });
 
-          const coinsRef = doc(db, "user_coins", user.uid);
-          const snap = await getDoc(coinsRef);
-          const currentCoins = snap.exists() ? (snap.data().coins ?? 150) : 150;
-          const finalCoins = currentCoins + coinsToAdd;
-
-          const expiresDate = new Date();
-          expiresDate.setDate(expiresDate.getDate() + 30);
-
-          await setDoc(coinsRef, {
-            plan: planId,
-            plan_status: "active",
-            tier: planId,
-            isPaid: true,
-            status: "active",
-            expiresAt: expiresDate,
-            coins: finalCoins,
-            license_acquired_at: new Date()
-          }, { merge: true });
-
-          import("sonner").then(({ toast }) => {
-            toast.success(`Payment Successful! Activated ${planId.replace("_", " ")} license & added +${coinsToAdd.toLocaleString()} workspace credits.`);
-          });
-
-          // Clean up search query params without triggering full reload
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-        } catch (err) {
-          console.error("Failed to handle successful redirection:", err);
-        }
-      };
-      handleSuccessfulPayment();
+      // Clean up search query params without triggering full reload
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
     } else if (failedParam === "true" || cancelParam === "true") {
       import("sonner").then(({ toast }) => {
-        toast.error("Payment Failed!");
+        toast.error("Payment session was cancelled or failed.");
       });
       // Clean up search query params
       const newUrl = window.location.pathname;

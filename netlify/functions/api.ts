@@ -3,38 +3,28 @@ import { GoogleGenAI, Type } from "@google/genai";
 // Get Active Secret API Key
 function getAPIKey(): string {
   const envKey = process.env.GEMINI_API_KEY;
-  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "") {
+  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "" && envKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
     return envKey;
   }
-  return "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY";
+  return "";
 }
 
 // Lazy initialization of Gemini SDK
 let aiClient: GoogleGenAI | null = null;
-let sandboxClient: GoogleGenAI | null = null;
-let userApiKeyQuotaExceeded = false;
 
 function getAI(): GoogleGenAI {
   const userKey = getAPIKey();
-  const isCustom = userKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY";
-
-  if (isCustom && !userApiKeyQuotaExceeded) {
-    if (!aiClient) {
-      aiClient = new GoogleGenAI({
-        apiKey: userKey,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-      });
-    }
-    return aiClient;
+  if (!userKey) {
+    throw new Error("GEMINI_API_KEY is not configured in the server environment variables.");
   }
 
-  if (!sandboxClient) {
-    sandboxClient = new GoogleGenAI({
-      apiKey: "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY",
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: userKey,
       httpOptions: { headers: { "User-Agent": "aistudio-build" } },
     });
   }
-  return sandboxClient;
+  return aiClient;
 }
 
 function isPromptUnsafe(text: string): boolean {
