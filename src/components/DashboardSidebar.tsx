@@ -15,7 +15,6 @@ import {
   TrendingUp,
   Bot,
   History,
-  Eye,
   ShieldCheck,
   BookOpen
 } from "lucide-react";
@@ -47,12 +46,6 @@ export function DashboardSidebar({ onClose }: DashboardSidebarProps) {
       path: "/dashboard/kron-ai",
       icon: Bot,
       badge: "NEW"
-    },
-    {
-      name: "Kron Vision AI",
-      path: "/dashboard/vision",
-      icon: Eye,
-      badge: "PRO"
     },
     {
       name: "Workspace History",

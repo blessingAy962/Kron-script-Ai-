@@ -18,7 +18,6 @@ import DashboardPricing from "./pages/DashboardPricing";
 import DashboardCourse from "./pages/DashboardCourse";
 import DashboardKronAI from "./pages/DashboardKronAI";
 import DashboardHistory from "./pages/DashboardHistory";
-import DashboardVisionAI from "./pages/DashboardVisionAI";
 import DashboardAdmin from "./pages/DashboardAdmin";
 
 export default function App() {
@@ -70,7 +69,6 @@ export default function App() {
           >
             <Route index element={<DashboardOverview />} />
             <Route path="kron-ai" element={<DashboardKronAI />} />
-            <Route path="vision" element={<DashboardVisionAI />} />
             <Route path="pricing" element={<DashboardPricing />} />
             <Route path="referrals" element={<DashboardCourse />} />
             <Route path="course" element={<DashboardCourse />} />

@@ -51,7 +51,7 @@ const platformBadges = [
 ];
 
 function WorkspaceTeaser() {
-  const [activeTab, setActiveTab] = useState<"prompt" | "script" | "diagnostics" | "deepfake" | "upscaler">("prompt");
+  const [activeTab, setActiveTab] = useState<"prompt" | "script" | "diagnostics" | "deepfake">("prompt");
 
   // State in Mockup 1 (Prompt Studio)
   const [promptInput, setPromptInput] = useState("A film close up of an astronaut reaching a neon portal, deep cosmos color");
@@ -281,7 +281,7 @@ function WorkspaceTeaser() {
             <span className="w-3.5 h-3.5 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-[7px] text-rose-600 font-bold">1</span>
             <span className="w-3.5 h-3.5 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-[7px] text-amber-600 font-bold">2</span>
             <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[7px] text-emerald-600 font-bold">3</span>
-            <span className="text-xs font-mono text-muted-foreground ml-2 font-bold uppercase tracking-wide">SYSTEM PREVIEW: 5 COMPREHENSIVE AI TOOLS</span>
+            <span className="text-xs font-mono text-muted-foreground ml-2 font-bold uppercase tracking-wide">SYSTEM PREVIEW: 4 COMPREHENSIVE AI TOOLS</span>
           </div>
           
           <div className="flex flex-wrap bg-muted/70 p-1.5 rounded-2xl border border-border/70 gap-1 sm:gap-1.5 max-w-full overflow-x-auto">
@@ -289,8 +289,7 @@ function WorkspaceTeaser() {
               { id: "prompt", label: "Prompt Studio", tag: 2 },
               { id: "script", label: "Script Architect", tag: null },
               { id: "diagnostics", label: "Pacing & Hook", tag: 3 },
-              { id: "deepfake", label: "Deepfake Inspector", tag: 4 },
-              { id: "upscaler", label: "UHD Upscaling", tag: 4 }
+              { id: "deepfake", label: "Deepfake Inspector", tag: 4 }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -302,7 +301,7 @@ function WorkspaceTeaser() {
                       setTourStep(2);
                     } else if (tourStep && tab.id === "diagnostics") {
                       setTourStep(3);
-                    } else if (tourStep && (tab.id === "deepfake" || tab.id === "upscaler")) {
+                    } else if (tourStep && tab.id === "deepfake") {
                       setTourStep(4);
                     }
                   }
@@ -721,95 +720,7 @@ function WorkspaceTeaser() {
               </motion.div>
             )}
 
-            {/* ====== TAB 5: UHD UPSCALER ====== */}
-            {activeTab === "upscaler" && (
-              <motion.div
-                key="upscaler-tab-live"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="space-y-6 text-left"
-              >
-                <div className="space-y-1.5">
-                  <span className="text-[9px] font-mono text-emerald-500 uppercase font-black block tracking-widest">RESOLUTION COMPARISON SLIDER</span>
-                  <h3 className="font-display font-black text-lg uppercase tracking-tight text-foreground">AI-POWERED ULTRA-HD RENDERER</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Grab the white central handle over our Earth model shot and drag left or right to compare blurry 1080p source grain with pristine, crystal-clear upscaled 4K AI details!
-                  </p>
-                </div>
 
-                <div 
-                  ref={upscalerRef}
-                  className="relative w-full h-[340px] rounded-[2rem] border border-border shadow-2xl overflow-hidden bg-zinc-950 cursor-ew-resize select-none"
-                  onMouseMove={(e) => {
-                    if (e.buttons === 1) {
-                      const rect = upscalerRef.current?.getBoundingClientRect();
-                      if (rect) {
-                        const offset = ((e.clientX - rect.left) / rect.width) * 100;
-                        setSplitRatio(Math.max(5, Math.min(95, offset)));
-                        handleAction(4);
-                      }
-                    }
-                  }}
-                  onTouchMove={(e) => {
-                    if (e.touches && e.touches[0]) {
-                      const rect = upscalerRef.current?.getBoundingClientRect();
-                      if (rect) {
-                        const offset = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
-                        setSplitRatio(Math.max(5, Math.min(95, offset)));
-                        handleAction(4);
-                      }
-                    }
-                  }}
-                >
-                  {/* Clean 4K Earth images base layer */}
-                  <div className="absolute inset-0">
-                    <img
-                      src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80"
-                      className="w-full h-full object-cover select-none pointer-events-none"
-                      alt="4K crystal clear upscale earth render"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-
-                  {/* Low resolution blurry Earth left overlay */}
-                  <div 
-                    className="absolute inset-y-0 left-0 overflow-hidden border-r border-white/60 pointer-events-none z-10"
-                    style={{ width: `${splitRatio}%` }}
-                  >
-                    <div className="absolute top-0 left-0 w-[1200px] h-[340px] max-w-none">
-                      <img
-                        src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80"
-                        className="w-full h-full object-cover filter blur-[4.5px] contrast-90 brightness-90 saturate-[65%] select-none pointer-events-none"
-                        alt="1080p source earth blurry"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute top-4 left-4 bg-black/60 border border-white/10 text-white font-mono text-[9px] font-bold py-1 px-2.5 rounded uppercase block tracking-wider">
-                        GRAINY 1080P OUTLINE
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute top-4 right-4 bg-emerald-500/85 backdrop-blur-sm text-white font-mono text-[9px] font-black py-1 px-2.5 rounded uppercase block tracking-wider pointer-events-none z-20">
-                    PRISTINE DETAILED COMPLIED 4K AI
-                  </div>
-
-                  {/* Handle line split dividers */}
-                  <div 
-                    className="absolute inset-y-0 z-20 w-0.5 bg-white cursor-ew-resize mix-blend-difference pointer-events-none"
-                    style={{ left: `${splitRatio}%` }}
-                  >
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white text-zinc-900 border border-border flex items-center justify-center font-bold text-xs shadow-xl pointer-events-auto cursor-ew-resize">
-                      ↔
-                    </div>
-                  </div>
-
-                  <p className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/80 backdrop-blur-sm text-white text-[9px] font-mono leading-none py-1.5 px-3 rounded-full font-extrabold uppercase tracking-widest pointer-events-none">
-                    ↔ GRAB SLIDER AND DRAG TO RESOLVE HIGH RESOLUTION DETAIL
-                  </p>
-                </div>
-              </motion.div>
-            )}
 
           </AnimatePresence>
         </div>
@@ -1401,26 +1312,6 @@ export default function Index() {
               </div>
               <div className="pt-2 border-t border-dashed border-border/40 text-[10px] font-mono text-rose-600 dark:text-rose-400 font-bold">
                 INTEGRITY: DETECTION & RISK SCORES
-              </div>
-            </motion.div>
-
-            {/* Card 6 */}
-            <motion.div
-              whileHover={{ y: -5 }}
-              transition={{ duration: 0.3 }}
-              className="rounded-3xl p-6.5 text-left bg-background/50 border border-border/85 shadow-sm space-y-5 flex flex-col justify-between"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <Maximize2 className="h-5 w-5" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-display font-extrabold text-base uppercase tracking-tight text-foreground">Ultra-HD Resolution Scaler</h3>
-                <p className="text-xs text-muted-foreground/90 font-sans leading-relaxed">
-                  Enhance your video frames and image assets to pristine 2K, 4K, and 8K visual resolutions. Instantly upgrade detail levels, eliminate pixelation, and optimize clarity for your screens.
-                </p>
-              </div>
-              <div className="pt-2 border-t border-dashed border-border/40 text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold">
-                VISION: ULTRA-HD VISUAL ENHANCEMENT
               </div>
             </motion.div>
           </div>
