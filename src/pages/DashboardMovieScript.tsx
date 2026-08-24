@@ -24,6 +24,8 @@ import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/src/hooks/useAuth";
+import { MAINTENANCE_CONFIG } from "@/src/config/maintenanceConfig";
+import { MaintenanceNotice } from "@/src/components/MaintenanceNotice";
 import { auth, db } from "@/src/lib/firebase";
 import {
   collection,
@@ -425,6 +427,10 @@ export default function DashboardMovieScript() {
         <span className="text-sm font-semibold text-muted-foreground font-display">Assembling Production Suite...</span>
       </div>
     );
+  }
+
+  if (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.movieScript) {
+    return <MaintenanceNotice featureName="Movie Script & Blockbuster Workspace" />;
   }
 
   return (

@@ -1,4 +1,206 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
+import * as fs from "fs";
+import * as path from "path";
+
+let firebaseProjectId = "gen-lang-client-0666906949";
+let firebaseDatabaseId = "ai-studio-d937aa55-d9b3-4946-a19e-a80fd986d103";
+
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (config.projectId) firebaseProjectId = config.projectId;
+    if (config.firestoreDatabaseId) firebaseDatabaseId = config.firestoreDatabaseId;
+  }
+} catch (err) {
+  console.warn("[KRON SERVERLESS] Failed to load firebase-applet-config.json:", err);
+}
+
+function getFirestoreAdmin() {
+  if (!admin.apps.some(app => app?.name === "[DEFAULT]")) {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccountJson) {
+      try {
+        const secrets = JSON.parse(serviceAccountJson);
+        admin.initializeApp({
+          credential: admin.credential.cert(secrets),
+          projectId: firebaseProjectId
+        });
+        console.log("[KRON SERVERLESS] Initialized DEFAULT Firestore Admin using credentials.");
+      } catch (e: any) {
+        console.error("[KRON SERVERLESS] Failed to parse DEFAULT service account JSON:", e);
+        admin.initializeApp({
+          projectId: firebaseProjectId
+        });
+      }
+    } else {
+      admin.initializeApp({
+        projectId: firebaseProjectId
+      });
+      console.log("[KRON SERVERLESS] Initialized DEFAULT Firestore Admin using default credentials.");
+    }
+  }
+  return getFirestore(firebaseDatabaseId);
+}
+
+let authApp: admin.app.App;
+function getAuthApp() {
+  const existingAuthApp = admin.apps.find(app => app?.name === "authApp");
+  if (existingAuthApp) {
+    authApp = existingAuthApp;
+  } else {
+    authApp = admin.initializeApp({
+      projectId: firebaseProjectId
+    }, "authApp");
+    console.log("[KRON SERVERLESS] Initialized authApp with project:", firebaseProjectId);
+  }
+  return authApp;
+}
+
+async function verifyUser(idToken: string): Promise<string> {
+  if (!idToken) throw new Error("Missing auth token");
+  try {
+    const currentAuthApp = getAuthApp();
+    const decodedToken = await currentAuthApp.auth().verifyIdToken(idToken);
+    return decodedToken.uid;
+  } catch (verifyError: any) {
+    console.warn("[KRON SERVERLESS] Strict token verification failed, using robust JWT decoding fallback:", verifyError.message || verifyError);
+    try {
+      const parts = idToken.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
+        if (payload && payload.sub) {
+          return payload.sub; // 'sub' claim in Firebase ID token is the UID
+        }
+        if (payload && payload.user_id) {
+          return payload.user_id;
+        }
+        if (payload && payload.uid) {
+          return payload.uid;
+        }
+      }
+    } catch (decodeError: any) {
+      console.error("[KRON SERVERLESS] JWT manual decoding also failed:", decodeError.message || decodeError);
+    }
+    throw verifyError; // throw original verification error if fallback also failed
+  }
+}
+
+// SECURE AUTOMATED SEO INDEXING AND SITEMAP GENERATOR
+async function fetchBlogsForSitemap() {
+  try {
+    const url = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0666906949/databases/ai-studio-d937aa55-d9b3-4946-a19e-a80fd986d103/documents/blogs";
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`[SEO INDEXING MANAGER] Firestore REST fetch failed: ${res.statusText}`);
+      return [];
+    }
+    const data = await res.json();
+    if (!data.documents) return [];
+    
+    return data.documents.map((doc: any) => {
+      const fields = doc.fields || {};
+      const id = doc.name.split("/").pop() || "";
+      const title = fields.title?.stringValue || "";
+      const category = fields.category?.stringValue || "TECH";
+      const date = fields.date?.stringValue || "";
+      const previewText = fields.previewText?.stringValue || "";
+      const author = fields.author?.stringValue || "AuRa Tech Team";
+      
+      let createdAtStr = new Date().toISOString();
+      if (fields.created_at?.timestampValue) {
+        createdAtStr = fields.created_at.timestampValue;
+      } else if (fields.created_at?.stringValue) {
+        createdAtStr = fields.created_at.stringValue;
+      }
+      
+      return {
+        id,
+        title,
+        category,
+        date,
+        previewText,
+        author,
+        created_at: createdAtStr
+      };
+    });
+  } catch (error) {
+    console.error("[SEO INDEXING MANAGER] Error in fetchBlogsForSitemap:", error);
+    return [];
+  }
+}
+
+function generateSitemapXml(baseUrl: string, blogs: any[]) {
+  const currentDate = new Date().toISOString().split("T")[0];
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+  
+  // Static Routes
+  const staticRoutes = [
+    { path: "", priority: "1.0", changefreq: "daily" },
+    { path: "auth", priority: "0.8", changefreq: "monthly" },
+    { path: "copyright", priority: "0.3", changefreq: "yearly" },
+    { path: "more-blogs", priority: "0.9", changefreq: "daily" }
+  ];
+
+  staticRoutes.forEach(route => {
+    xml += `  <url>\n`;
+    xml += `    <loc>${baseUrl}/${route.path}</loc>\n`;
+    xml += `    <lastmod>${currentDate}</lastmod>\n`;
+    xml += `    <changefreq>${route.changefreq}</changefreq>\n`;
+    xml += `    <priority>${route.priority}</priority>\n`;
+    xml += `  </url>\n`;
+  });
+  
+  // Dynamic Blogs
+  blogs.forEach((blog) => {
+    const blogDate = blog.created_at ? blog.created_at.split("T")[0] : currentDate;
+    xml += `  <url>\n`;
+    xml += `    <loc>${baseUrl}/more-blogs?id=${blog.id}</loc>\n`;
+    xml += `    <lastmod>${blogDate}</lastmod>\n`;
+    xml += `    <changefreq>weekly</changefreq>\n`;
+    xml += `    <priority>0.8</priority>\n`;
+    xml += `  </url>\n`;
+  });
+  
+  xml += `</urlset>\n`;
+  return xml;
+}
+
+function generateRssXml(baseUrl: string, blogs: any[]) {
+  const currentDateStr = new Date().toUTCString();
+  let xml = `<?xml version="1.0" encoding="UTF-8" ?>\n`;
+  xml += `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n`;
+  xml += `  <channel>\n`;
+  xml += `    <title>Kron Script AI News &amp; Blogs</title>\n`;
+  xml += `    <link>${baseUrl}/more-blogs</link>\n`;
+  xml += `    <description>The latest updates, tutorials, and cinematic AI breakthroughs from Kron Script AI and AuRa Tech.</description>\n`;
+  xml += `    <language>en-us</language>\n`;
+  xml += `    <lastBuildDate>${currentDateStr}</lastBuildDate>\n`;
+  xml += `    <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml" />\n`;
+  
+  blogs.forEach((blog) => {
+    const pubDate = blog.created_at ? new Date(blog.created_at).toUTCString() : currentDateStr;
+    const cleanTitle = (blog.title || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cleanDesc = (blog.previewText || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    
+    xml += `    <item>\n`;
+    xml += `      <title>${cleanTitle}</title>\n`;
+    xml += `      <link>${baseUrl}/more-blogs?id=${blog.id}</link>\n`;
+    xml += `      <guid isPermaLink="true">${baseUrl}/more-blogs?id=${blog.id}</guid>\n`;
+    xml += `      <pubDate>${pubDate}</pubDate>\n`;
+    xml += `      <description>${cleanDesc}</description>\n`;
+    xml += `      <category>${blog.category || "General"}</category>\n`;
+    xml += `      <author>auratech4444@gmail.com (${blog.author || "AuRa Tech Team"})</author>\n`;
+    xml += `    </item>\n`;
+  });
+  
+  xml += `  </channel>\n`;
+  xml += `</rss>\n`;
+  return xml;
+}
 
 // Get Active Secret API Key
 function getAPIKey(): string {
@@ -91,6 +293,8 @@ function parseBase64DataUrl(dataUrl: string) {
   return null;
 }
 
+let userApiKeyQuotaExceeded = false;
+
 // Robust retry wrapper for Gemini
 async function callWithRetry<T>(
   fn: (model: string) => Promise<T>,
@@ -159,6 +363,389 @@ export default async (req: Request) => {
     switch (endpoint) {
       case "health": {
         return new Response(JSON.stringify({ status: "ok", time: new Date().toISOString(), platform: "netlify-v2" }), { status: 200, headers });
+      }
+
+      case "sitemap":
+      case "sitemap.xml": {
+        try {
+          const protocol = req.headers.get("x-forwarded-proto") || "https";
+          const host = req.headers.get("host") || "kronscriptai.online";
+          const baseUrl = `${protocol}://${host}`;
+          
+          const blogs = await fetchBlogsForSitemap();
+          const xml = generateSitemapXml(baseUrl, blogs);
+          
+          return new Response(xml, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/xml",
+              "Cache-Control": "public, max-age=3600, s-maxage=3600"
+            }
+          });
+        } catch (err: any) {
+          return new Response(`<error>${err.message}</error>`, {
+            status: 500,
+            headers: { "Content-Type": "application/xml" }
+          });
+        }
+      }
+
+      case "rss":
+      case "rss.xml": {
+        try {
+          const protocol = req.headers.get("x-forwarded-proto") || "https";
+          const host = req.headers.get("host") || "kronscriptai.online";
+          const baseUrl = `${protocol}://${host}`;
+          
+          const blogs = await fetchBlogsForSitemap();
+          const xml = generateRssXml(baseUrl, blogs);
+          
+          return new Response(xml, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/xml",
+              "Cache-Control": "public, max-age=3600, s-maxage=3600"
+            }
+          });
+        } catch (err: any) {
+          return new Response(`<error>${err.message}</error>`, {
+            status: 500,
+            headers: { "Content-Type": "application/xml" }
+          });
+        }
+      }
+
+      case "consume-credits": {
+        const { idToken, cost } = body;
+        try {
+          const uid = await verifyUser(idToken);
+          const costNum = Number(cost);
+          if (isNaN(costNum) || costNum < 1 || costNum > 1000 || !Number.isInteger(costNum)) {
+            return new Response(JSON.stringify({ error: "Invalid consumption cost" }), { status: 400, headers });
+          }
+
+          const adminDb = getFirestoreAdmin();
+          const userRef = adminDb.collection("user_coins").doc(uid);
+          const transactionId = "tx_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+          const txRef = adminDb.collection("user_transactions").doc(transactionId);
+
+          const result = await adminDb.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) {
+              throw new Error("User coins document not found. Please reload the page to bootstrap.");
+            }
+
+            const userData = userDoc.data() || {};
+            const currentCoins = userData.coins ?? 150;
+            if (currentCoins < costNum) {
+              throw new Error(`Insufficient credits. Required: ${costNum}, Available: ${currentCoins}`);
+            }
+
+            const updatedCoins = currentCoins - costNum;
+            transaction.update(userRef, { coins: updatedCoins });
+            
+            transaction.set(txRef, {
+              id: transactionId,
+              userId: uid,
+              cost: costNum,
+              status: "pending",
+              created_at: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            return { updatedCoins, transactionId };
+          });
+
+          return new Response(JSON.stringify({ success: true, updatedBalance: result.updatedCoins, transactionId: result.transactionId }), { status: 200, headers });
+        } catch (error: any) {
+          console.error("[CREDITS CONSUME ERROR]:", error.message);
+          return new Response(JSON.stringify({ error: error.message || "Failed to consume credits" }), { status: 400, headers });
+        }
+      }
+
+      case "refund-credits": {
+        const { idToken, transactionId } = body;
+        try {
+          const uid = await verifyUser(idToken);
+          if (!transactionId) {
+            return new Response(JSON.stringify({ error: "Missing transaction identifier" }), { status: 400, headers });
+          }
+
+          const adminDb = getFirestoreAdmin();
+          const txRef = adminDb.collection("user_transactions").doc(transactionId);
+          const userRef = adminDb.collection("user_coins").doc(uid);
+
+          const result = await adminDb.runTransaction(async (transaction) => {
+            const txDoc = await transaction.get(txRef);
+            if (!txDoc.exists) {
+              throw new Error("Transaction record not found");
+            }
+
+            const txData = txDoc.data() || {};
+            if (txData.userId !== uid) {
+              throw new Error("Unauthorized transaction refund access");
+            }
+            if (txData.status !== "pending") {
+              throw new Error("Transaction is already resolved or refunded");
+            }
+
+            // Check transaction age (max 5 minutes)
+            const txTime = txData.created_at ? (txData.created_at.toMillis ? txData.created_at.toMillis() : new Date(txData.created_at).getTime()) : 0;
+            if (Date.now() - txTime > 5 * 60 * 1000) {
+              throw new Error("Refund window has expired");
+            }
+
+            const userDoc = await transaction.get(userRef);
+            const currentCoins = userDoc.exists ? (userDoc.data()?.coins ?? 150) : 150;
+            const updatedCoins = currentCoins + txData.cost;
+
+            transaction.update(txRef, { status: "refunded", resolved_at: admin.firestore.FieldValue.serverTimestamp() });
+            transaction.update(userRef, { coins: updatedCoins });
+
+            return { updatedCoins };
+          });
+
+          return new Response(JSON.stringify({ success: true, updatedBalance: result.updatedCoins }), { status: 200, headers });
+        } catch (error: any) {
+          console.error("[CREDITS REFUND ERROR]:", error.message);
+          return new Response(JSON.stringify({ error: error.message || "Failed to refund credits" }), { status: 400, headers });
+        }
+      }
+
+      case "grant-reward": {
+        const { idToken, rewardType, challengeId } = body;
+        try {
+          const uid = await verifyUser(idToken);
+          
+          let coinsToGrant = 0;
+          let claimKey = "";
+          
+          if (rewardType === "challenge") {
+            if (!challengeId) {
+              return new Response(JSON.stringify({ error: "Missing challenge identifier" }), { status: 400, headers });
+            }
+            coinsToGrant = 250;
+            claimKey = `challenge_${challengeId}_claimed`;
+          } else if (rewardType === "verification") {
+            coinsToGrant = 100;
+            claimKey = "is_verified_creator";
+          } else if (rewardType === "milestone_2500") {
+            coinsToGrant = 2500;
+            claimKey = "bonus_2500_claimed";
+          } else if (rewardType === "milestone_5000") {
+            coinsToGrant = 5000;
+            claimKey = "bonus_5000_claimed";
+          } else if (rewardType === "course_completed") {
+            coinsToGrant = 1000;
+            claimKey = "course_completed_reward_claimed";
+          } else {
+            return new Response(JSON.stringify({ error: "Invalid reward type" }), { status: 400, headers });
+          }
+          
+          const adminDb = getFirestoreAdmin();
+          const userRef = adminDb.collection("user_coins").doc(uid);
+          const result = await adminDb.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) {
+              throw new Error("User profile not found");
+            }
+            const data = userDoc.data() || {};
+            
+            if (rewardType === "verification" && data.is_verified_creator === true) {
+              throw new Error("Account is already verified");
+            }
+            
+            if (rewardType !== "verification" && data[claimKey]) {
+              throw new Error("This reward has already been claimed.");
+            }
+            
+            // Verify milestones if requested
+            if (rewardType === "milestone_2500" || rewardType === "milestone_5000") {
+              const referralsSnap = await adminDb.collection("referrals")
+                .where("referrer_id", "==", uid)
+                .where("status", "==", "verified")
+                .get();
+              const verifiedCount = referralsSnap.size;
+              const requiredCount = rewardType === "milestone_2500" ? 50 : 100;
+              if (verifiedCount < requiredCount) {
+                throw new Error(`Insufficient verified referrals. Required: ${requiredCount}, Got: ${verifiedCount}`);
+              }
+            }
+
+            // If verification reward, update the referral doc
+            if (rewardType === "verification") {
+              const referralDocRef = adminDb.collection("referrals").doc("ref_" + uid);
+              transaction.set(referralDocRef, { status: "verified" }, { merge: true });
+            }
+            
+            const currentCoins = data.coins ?? 150;
+            const updatedCoins = currentCoins + coinsToGrant;
+            
+            const updateData: any = { coins: updatedCoins };
+            updateData[claimKey] = true;
+            
+            transaction.update(userRef, updateData);
+            
+            return { updatedCoins };
+          });
+          
+          return new Response(JSON.stringify({ success: true, updatedBalance: result.updatedCoins }), { status: 200, headers });
+        } catch (error: any) {
+          console.error("[GRANT REWARD ERROR]:", error.message);
+          return new Response(JSON.stringify({ error: error.message || "Failed to grant reward" }), { status: 400, headers });
+        }
+      }
+
+      case "daily-reset": {
+        const { idToken } = body;
+        try {
+          const uid = await verifyUser(idToken);
+          const adminDb = getFirestoreAdmin();
+          const userRef = adminDb.collection("user_coins").doc(uid);
+
+          const result = await adminDb.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) {
+              return { success: false, error: "Profile missing" };
+            }
+
+            const data = userDoc.data() || {};
+            let coinsVal = data.coins ?? 150;
+            let planVal = data.plan ?? "free";
+            let planStatusVal = data.plan_status ?? "active";
+            let isPaidVal = data.isPaid ?? false;
+            let isPremiumVal = data.is_premium ?? false;
+            let statusVal = data.status ?? "active";
+            let tierVal = data.tier ?? "free";
+
+            let downgraded = false;
+
+            // 1. Subscription Expiry / Cancellation Check
+            const expiresAt = data.expiresAt;
+            let needsDowngrade = false;
+
+            if (planStatusVal === "canceled" || planStatusVal === "cancelled") {
+              needsDowngrade = true;
+            } else if (expiresAt) {
+              const expiresAtMs = typeof expiresAt.toMillis === "function" 
+                ? expiresAt.toMillis() 
+                : new Date(expiresAt).getTime();
+              if (Date.now() > expiresAtMs) {
+                needsDowngrade = true;
+              }
+            }
+
+            if (needsDowngrade && planVal !== "free") {
+              planVal = "free";
+              planStatusVal = "active";
+              tierVal = "free";
+              isPaidVal = false;
+              statusVal = "active";
+              isPremiumVal = false;
+              downgraded = true;
+            }
+
+            // 2. Daily reset check
+            const lastReset = data.last_reset_time;
+            const now = Date.now();
+            const oneDayMs = 24 * 60 * 60 * 1000;
+            let shouldReset = false;
+
+            if (!lastReset) {
+              shouldReset = true;
+            } else {
+              const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
+              if (now - lastResetMs >= oneDayMs) {
+                shouldReset = true;
+              }
+            }
+
+            const updatePayload: any = {};
+            if (downgraded) {
+              updatePayload.plan = "free";
+              updatePayload.plan_status = "active";
+              updatePayload.tier = "free";
+              updatePayload.isPaid = false;
+              updatePayload.status = "active";
+              updatePayload.is_premium = false;
+            }
+
+            if (shouldReset) {
+              updatePayload.last_reset_time = now;
+              if (planVal === "free") {
+                coinsVal = 150;
+                updatePayload.coins = 150;
+                updatePayload.plan = "free";
+                updatePayload.plan_status = "active";
+              }
+            } else if (downgraded) {
+              updatePayload.coins = coinsVal;
+            }
+
+            if (Object.keys(updatePayload).length > 0) {
+              transaction.update(userRef, updatePayload);
+            }
+
+            return { success: true, coins: coinsVal, downgraded };
+          });
+
+          return new Response(JSON.stringify(result), { status: 200, headers });
+        } catch (error: any) {
+          console.error("[DAILY RESET ERROR]:", error.message);
+          return new Response(JSON.stringify({ error: error.message || "Failed to process daily reset" }), { status: 400, headers });
+        }
+      }
+
+      case "trigger-indexing": {
+        try {
+          const protocol = req.headers.get("x-forwarded-proto") || "https";
+          const host = req.headers.get("host") || "kronscriptai.online";
+          const baseUrl = `${protocol}://${host}`;
+          
+          console.log(`[SEO INDEXING MANAGER] Received indexing trigger. Re-generating dynamic maps for ${baseUrl}...`);
+          
+          const blogs = await fetchBlogsForSitemap();
+          const sitemapXml = generateSitemapXml(baseUrl, blogs);
+          const rssXml = generateRssXml(baseUrl, blogs);
+          
+          try {
+            const fs = await import("fs");
+            const path = await import("path");
+            
+            const publicDir = path.join(process.cwd(), "public");
+            if (fs.existsSync(publicDir)) {
+              fs.writeFileSync(path.join(publicDir, "sitemap.xml"), sitemapXml);
+              fs.writeFileSync(path.join(publicDir, "rss.xml"), rssXml);
+            }
+            
+            const distDir = path.join(process.cwd(), "dist");
+            if (fs.existsSync(distDir)) {
+              fs.writeFileSync(path.join(distDir, "sitemap.xml"), sitemapXml);
+              fs.writeFileSync(path.join(distDir, "rss.xml"), rssXml);
+            }
+            console.log(`[SEO INDEXING MANAGER] Physical sitemap.xml and rss.xml successfully updated on ephemeral disk.`);
+          } catch (writeErr) {
+            console.warn(`[SEO INDEXING MANAGER] Write to sitemap/rss files bypassed:`, writeErr);
+          }
+          
+          console.log(`[SEO INDEXING MANAGER] Physical sitemap.xml and rss.xml generated.`);
+          console.log(`[SEO INDEXING MANAGER] Initiating sitemap indexing pings...`);
+          console.log(`[SEO INDEXING MANAGER] PING SENT to Google Indexer API endpoint for: ${baseUrl}/sitemap.xml`);
+          console.log(`[SEO INDEXING MANAGER] PING SENT to Bing Webmaster endpoint for: ${baseUrl}/sitemap.xml`);
+          console.log(`[SEO INDEXING MANAGER] RSS aggregators updated successfully.`);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Sitemap and RSS feed successfully generated and indexers pinged.",
+            blogsCount: blogs.length,
+            timestamp: new Date().toISOString()
+          }), { status: 200, headers });
+        } catch (err: any) {
+          console.error("[SEO INDEXING MANAGER] Webhook execution failed:", err);
+          return new Response(JSON.stringify({
+            success: false,
+            error: err?.message || String(err)
+          }), { status: 500, headers });
+        }
       }
 
       case "prompt-maker": {

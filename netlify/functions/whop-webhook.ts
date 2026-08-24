@@ -1,5 +1,21 @@
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
+import * as fs from "fs";
+import * as path from "path";
+
+let firebaseProjectId = "gen-lang-client-0666906949";
+let firebaseDatabaseId = "ai-studio-d937aa55-d9b3-4946-a19e-a80fd986d103";
+
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (config.projectId) firebaseProjectId = config.projectId;
+    if (config.firestoreDatabaseId) firebaseDatabaseId = config.firestoreDatabaseId;
+  }
+} catch (err) {
+  console.warn("[KRON SERVERLESS] Failed to load firebase-applet-config.json in whop-webhook:", err);
+}
 
 // Allowed server-side plan definitions
 interface WhopPlanConfig {
@@ -21,20 +37,25 @@ function getFirestoreAdmin() {
       try {
         const secrets = JSON.parse(serviceAccountJson);
         admin.initializeApp({
-          credential: admin.credential.cert(secrets)
+          credential: admin.credential.cert(secrets),
+          projectId: firebaseProjectId
         });
         console.log("[KRON SERVERLESS] Initialized Firestore Admin using credentials.");
       } catch (e: any) {
         console.error("[KRON SERVERLESS] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:", e);
-        admin.initializeApp();
+        admin.initializeApp({
+          projectId: firebaseProjectId
+        });
       }
     } else {
       console.warn("[KRON SERVERLESS] FIREBASE_SERVICE_ACCOUNT is not defined in environment.");
       // Standard fallback
-      admin.initializeApp();
+      admin.initializeApp({
+        projectId: firebaseProjectId
+      });
     }
   }
-  return admin.firestore();
+  return admin.firestore(firebaseDatabaseId);
 }
 
 const headers = {

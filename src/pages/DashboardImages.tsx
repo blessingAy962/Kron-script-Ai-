@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { db } from "@/src/lib/firebase";
 import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "@/src/lib/firebase";
 import { useAuth } from "@/src/hooks/useAuth";
+import { MAINTENANCE_CONFIG } from "@/src/config/maintenanceConfig";
+import { MaintenanceNotice } from "@/src/components/MaintenanceNotice";
 
 type GeneratedImage = {
   id: string;
@@ -124,6 +126,10 @@ export default function DashboardImages() {
         <span className="text-sm font-semibold text-muted-foreground font-display">Assembling artwork table...</span>
       </div>
     );
+  }
+
+  if (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.images) {
+    return <MaintenanceNotice featureName="AI Image Studio" />;
   }
 
   return (

@@ -31,6 +31,8 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { toast } from "sonner";
+import { MAINTENANCE_CONFIG } from "@/src/config/maintenanceConfig";
+import { MaintenanceNotice } from "@/src/components/MaintenanceNotice";
 
 // Defined prompt engines
 const platforms = [
@@ -103,6 +105,9 @@ export default function CreatorToolkit() {
   };
 
   const [activeTab, setActiveTab] = useState<"prompter" | "scriptwriter" | "thumbnail" | "video" | "captions" | "detector">("prompter");
+  const [systemError, setSystemError] = useState<string | null>(
+    "Dear users,\nWe are currently performing a system update, and some features are temporarily unavailable while they undergo maintenance. Please bear with us we expect everything to be back to normal soon.\nThank you for your patience and understanding."
+  );
   const [loading, setLoading] = useState(false);
   const [copiedText, setCopiedText] = useState("");
   const [kron1Copied, setKron1Copied] = useState(false);
@@ -1083,6 +1088,33 @@ export default function CreatorToolkit() {
           </p>
         </div>
 
+        {/* Dynamic Workplace System Maintenance Alert Banner */}
+        {systemError && (
+          <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 text-amber-800 text-left space-y-3 relative overflow-hidden shadow-xs dark:text-amber-200">
+            <div className="flex items-start gap-3.5">
+              <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-1 w-full">
+                <h4 className="text-xs font-mono font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                  system maintenance
+                </h4>
+                <div className="text-xs font-medium leading-relaxed space-y-1">
+                  {systemError.split("\n").map((line, idx) => (
+                    <p key={idx}>{line}</p>
+                  ))}
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={() => setSystemError(null)}
+                    className="text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 p-1.5 px-3 rounded-lg border border-amber-500/20 transition-colors cursor-pointer"
+                  >
+                    Acknowledge
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tab Controls Bar - Apple-style tab switch bar */}
         <div className="flex flex-wrap items-center gap-1.5 mb-8 bg-muted/40 p-1.5 rounded-2xl border border-border/80 max-w-4xl">
           <button
@@ -1165,7 +1197,26 @@ export default function CreatorToolkit() {
         {/* Dynamic Workspace Container */}
         <div className="glass-card border border-border p-5 md:p-8 rounded-3xl min-h-[480px] grid grid-cols-1 md:grid-cols-12 gap-8 relative overflow-hidden text-left bg-card">
           
-          <AnimatePresence mode="wait">
+          {((activeTab === "prompter" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.promptMaker)) ||
+            (activeTab === "scriptwriter" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.movieScript)) ||
+            (activeTab === "thumbnail" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.thumbnail)) ||
+            (activeTab === "video" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.video)) ||
+            (activeTab === "captions" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.captions)) ||
+            (activeTab === "detector" && (MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.detector))) ? (
+            <div className="col-span-12 w-full py-12 flex items-center justify-center">
+              <MaintenanceNotice 
+                featureName={
+                  activeTab === "prompter" ? "Prompt Maker" :
+                  activeTab === "scriptwriter" ? "Movie Script Studio" :
+                  activeTab === "thumbnail" ? "Thumbnail Analyzer" :
+                  activeTab === "video" ? "Video Creator Suite" :
+                  activeTab === "captions" ? "Captions Generator" :
+                  "AI Pacing & Safe-Zone Detector"
+                } 
+              />
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
             
             {/* TAB 1: ADVANCED MULTI-MODAL PROMPT GENERATOR */}
             {activeTab === "prompter" && (
@@ -2802,6 +2853,7 @@ The watch is positioned at a slight angle, showing beautiful reflections on the 
               </motion.div>
             )}
           </AnimatePresence>
+          )}
 
         </div>
 

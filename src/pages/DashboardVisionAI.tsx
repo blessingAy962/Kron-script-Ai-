@@ -39,6 +39,8 @@ import {
 } from "firebase/firestore";
 import { toast } from "sonner";
 import { Button } from "@/src/components/ui/button";
+import { MAINTENANCE_CONFIG } from "@/src/config/maintenanceConfig";
+import { MaintenanceNotice } from "@/src/components/MaintenanceNotice";
 
 interface EnhancementConfig {
   removeBlur: boolean;
@@ -425,44 +427,8 @@ export default function DashboardVisionAI() {
         </div>
       </div>
 
-      {true ? (
-        <div id="vision_lockout" className="w-full bg-card border border-border rounded-3xl p-10 py-16 text-center max-w-2xl mx-auto space-y-6 shadow-xs relative overflow-hidden mt-6 animate-in fade-in duration-300">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 to-red-500" />
-          <div className="mx-auto w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-2">
-            <Clock className="h-8 w-8 animate-spin" style={{ animationDuration: '4s' }} />
-          </div>
-          <div className="space-y-2">
-            <span className="p-1 px-2.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-mono font-bold text-amber-500 uppercase tracking-widest">
-              SYSTEM MAINTENANCE ACTIVE
-            </span>
-            <h2 className="text-xl md:text-2xl font-display font-black tracking-tight uppercase text-foreground">KRON VISION AI UNDER MAINTENANCE</h2>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Our neural processing farms and high-throughput upscaling nodes are currently undergoing system maintenance. Vision super-resolution, motion-deblurring, and face-restoration engines are temporarily locked for all users.
-            </p>
-          </div>
-          {/* PLANNED UPGRADES HIDDEN AS REQUESTED - NO DELETION:
-          <div className="border border-border/80 rounded-2xl p-6 bg-muted/20 text-left max-w-md mx-auto space-y-4">
-            <span className="block text-[10px] uppercase font-mono tracking-widest text-amber-500 font-black">⚙️ PLANNED UPGRADES</span>
-            <ul className="text-xs text-muted-foreground space-y-2.5">
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span>Next-generation 16K ultra-fidelity tensor upscaler integration</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span>Real-time optical flow enhancement for dynamic footage</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span>Upgraded neural face-restoration filters with higher accuracy</span>
-              </li>
-            </ul>
-          </div>
-          */}
-          <p className="text-[10px] font-mono text-muted-foreground/80 font-semibold italic">
-            This module will remain locked until maintenance protocols are completely verified. We appreciate your patience.
-          </p>
-        </div>
+      {(MAINTENANCE_CONFIG.globalMaintenance || MAINTENANCE_CONFIG.tools.visionAi) ? (
+        <MaintenanceNotice featureName="Vision AI Workspace" />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column - Controls and Settings (5-cols) */}

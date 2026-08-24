@@ -11,6 +11,7 @@ function getAPIKey(): string {
 
 // Lazy initialization of Gemini SDK
 let aiClient: GoogleGenAI | null = null;
+let userApiKeyQuotaExceeded = false;
 
 function getAI(): GoogleGenAI {
   const userKey = getAPIKey();

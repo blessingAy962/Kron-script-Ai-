@@ -6,7 +6,7 @@ import ThemeToggle from "@/src/components/ThemeToggle";
 import { SettingsMenu } from "@/src/components/SettingsMenu";
 import { useAuth } from "@/src/hooks/useAuth";
 import { auth, db } from "@/src/lib/firebase";
-import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -94,7 +94,7 @@ export default function DashboardLayout() {
             referral_count: 0,
             referred_emails: [],
             is_admin: isAdminEmail,
-            created_at: new Date()
+            created_at: serverTimestamp()
           });
         } catch (bootErr) {
           console.warn("Failed to bootstrap user_coins document");
