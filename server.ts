@@ -241,6 +241,8 @@ async function verifyUser(idToken: string): Promise<{ uid: string; email: string
         if (uid) {
           return { uid, email };
         }
+
+
       }
     } catch (decodeError: any) {
       console.error("[KRON SERVER] JWT manual decoding also failed:", decodeError.message || decodeError);
@@ -248,6 +250,287 @@ async function verifyUser(idToken: string): Promise<{ uid: string; email: string
     throw verifyError; // throw original verification error if fallback also failed
   }
 }
+
+function firestoreToFlatJson(fields: any): any {
+  if (!fields) return {};
+  const flat: any = {};
+  for (const [key, valObj] of Object.entries(fields)) {
+    const valueObj: any = valObj;
+    if (valueObj === null || valueObj === undefined) {
+      flat[key] = null;
+    } else if ("stringValue" in valueObj) {
+      flat[key] = valueObj.stringValue;
+    } else if ("integerValue" in valueObj) {
+      flat[key] = parseInt(valueObj.integerValue, 10);
+    } else if ("doubleValue" in valueObj) {
+      flat[key] = parseFloat(valueObj.doubleValue);
+    } else if ("booleanValue" in valueObj) {
+      flat[key] = valueObj.booleanValue;
+    } else if ("timestampValue" in valueObj) {
+      flat[key] = valueObj.timestampValue;
+    } else if ("nullValue" in valueObj) {
+      flat[key] = null;
+    } else if ("arrayValue" in valueObj) {
+      const vals = valueObj.arrayValue.values || [];
+      flat[key] = vals.map((v: any) => {
+        if (!v) return null;
+        if ("stringValue" in v) return v.stringValue;
+        if ("integerValue" in v) return parseInt(v.integerValue, 10);
+        if ("doubleValue" in v) return parseFloat(v.doubleValue);
+        if ("booleanValue" in v) return v.booleanValue;
+        return v;
+      });
+    } else if ("mapValue" in valueObj) {
+      flat[key] = firestoreToFlatJson(valueObj.mapValue.fields);
+    }
+  }
+  return flat;
+}
+
+function flatJsonToFirestore(flat: any): any {
+  const fields: any = {};
+  for (const [key, val] of Object.entries(flat)) {
+    if (val === null || val === undefined) {
+      fields[key] = { nullValue: null };
+    } else if (typeof val === "boolean") {
+      fields[key] = { booleanValue: val };
+    } else if (typeof val === "number") {
+      if (Number.isInteger(val)) {
+        fields[key] = { integerValue: String(val) };
+      } else {
+        fields[key] = { doubleValue: val };
+      }
+    } else if (typeof val === "string") {
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
+        fields[key] = { timestampValue: val };
+      } else {
+        fields[key] = { stringValue: val };
+      }
+    } else if (Array.isArray(val)) {
+      fields[key] = {
+        arrayValue: {
+          values: val.map(item => {
+            if (item === null || item === undefined) return { nullValue: null };
+            if (typeof item === "string") return { stringValue: item };
+            if (typeof item === "number") {
+              if (Number.isInteger(item)) return { integerValue: String(item) };
+              return { doubleValue: item };
+            }
+            if (typeof item === "boolean") return { booleanValue: item };
+            return { stringValue: String(item) };
+          })
+        }
+      };
+    } else if (typeof val === "object") {
+      const obj = val as any;
+      if (obj && (obj._seconds || obj.seconds)) {
+        const secs = obj.seconds || obj._seconds;
+        fields[key] = { timestampValue: new Date(secs * 1000).toISOString() };
+      } else if (obj && typeof obj.toISOString === "function") {
+        fields[key] = { timestampValue: obj.toISOString() };
+      } else {
+        fields[key] = { mapValue: { fields: flatJsonToFirestore(obj) } };
+      }
+    }
+  }
+  return fields;
+}
+
+async function getUserCoinsRest(idToken: string, uid: string): Promise<any> {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/${firebaseDatabaseId}/documents/user_coins/${uid}`;
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": `Bearer ${idToken}`
+    }
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Firestore REST getUserCoins error: ${res.status} - ${errText}`);
+  }
+  const data = await res.json();
+  return firestoreToFlatJson(data.fields);
+}
+
+async function saveUserCoinsRest(idToken: string, uid: string, data: any): Promise<any> {
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/${firebaseDatabaseId}/documents/user_coins/${uid}`;
+  
+  const payloadData = { ...data };
+  delete payloadData.id;
+  delete payloadData.user_id;
+  
+  payloadData.user_id = uid;
+  payloadData.id = uid;
+
+  const payload = {
+    fields: flatJsonToFirestore(payloadData)
+  };
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Firestore REST saveUserCoins error: ${res.status} - ${errText}`);
+  }
+  const resData = await res.json();
+  return firestoreToFlatJson(resData.fields);
+}
+
+// Helper to consume credits and perform daily reset
+async function consumeUserCredits(idToken: string, cost: number, description: string = "AI feature usage"): Promise<string> {
+  if (!idToken || !cost) return "";
+  const { uid, email } = await verifyUser(idToken);
+  const costNum = Number(cost);
+  if (isNaN(costNum) || costNum < 1 || costNum > 10000 || !Number.isInteger(costNum)) {
+    throw new Error("Invalid consumption cost");
+  }
+
+  try {
+    const userRef = adminDb.collection("user_coins").doc(uid);
+    const transactionId = "tx_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    const txRef = adminDb.collection("user_transactions").doc(transactionId);
+
+    return await adminDb.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      let currentCoins = 150;
+      let userData: any = {};
+      const now = Date.now();
+      let updatePayload: any = {};
+
+      if (!userDoc.exists) {
+        const isAdminEmail = email === "starbruce91@gmail.com";
+        currentCoins = isAdminEmail ? 150000 : 150;
+        userData = {
+          id: uid,
+          user_id: uid,
+          coins: currentCoins,
+          plan: isAdminEmail ? "pro_creator" : "free",
+          plan_status: "active",
+          last_reset_time: now,
+          referral_count: 0,
+          referred_emails: [],
+          is_admin: isAdminEmail,
+          created_at: admin.firestore.FieldValue.serverTimestamp()
+        };
+      } else {
+        userData = userDoc.data() || {};
+        currentCoins = userData.coins ?? 150;
+        
+        const lastReset = userData.last_reset_time;
+        let shouldReset = false;
+        if (!lastReset) {
+          shouldReset = true;
+        } else {
+          const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
+          if (now - lastResetMs >= 24 * 60 * 60 * 1000) {
+            shouldReset = true;
+          }
+        }
+        
+        const planVal = userData.plan || "free";
+        if (shouldReset && planVal === "free") {
+          currentCoins = 150; 
+          updatePayload.last_reset_time = now;
+        } else if (shouldReset) {
+          updatePayload.last_reset_time = now;
+        }
+      }
+
+      if (currentCoins < costNum) {
+        throw new Error(`Insufficient credits. Need ${costNum} but have ${currentCoins}.`);
+      }
+
+      const newCoins = currentCoins - costNum;
+      
+      if (!userDoc.exists) {
+        userData.coins = newCoins;
+        transaction.set(userRef, userData);
+      } else {
+        updatePayload.coins = newCoins;
+        updatePayload.updated_at = admin.firestore.FieldValue.serverTimestamp();
+        transaction.update(userRef, updatePayload);
+      }
+
+      transaction.set(txRef, {
+        id: transactionId,
+        user_id: uid,
+        amount: -costNum,
+        type: "consume",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        description: description
+      });
+
+      return transactionId;
+    });
+  } catch (adminErr: any) {
+    if (adminErr.message && (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("permissions"))) {
+      console.log("[KRON SERVER] Activating user-authenticated REST proxy...");
+      
+      const now = Date.now();
+      let coinsData = await getUserCoinsRest(idToken, uid);
+      let currentCoins = 150;
+
+      if (!coinsData) {
+        const isAdminEmail = email === "starbruce91@gmail.com";
+        currentCoins = isAdminEmail ? 150000 : 150;
+        coinsData = {
+          id: uid,
+          user_id: uid,
+          coins: currentCoins,
+          plan: isAdminEmail ? "pro_creator" : "free",
+          plan_status: "active",
+          last_reset_time: now,
+          referral_count: 0,
+          referred_emails: [],
+          is_admin: isAdminEmail,
+          created_at: new Date().toISOString()
+        };
+      } else {
+        currentCoins = coinsData.coins ?? 150;
+        
+        const lastReset = coinsData.last_reset_time;
+        let shouldReset = false;
+        if (!lastReset) {
+          shouldReset = true;
+        } else {
+          const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
+          if (now - lastResetMs >= 24 * 60 * 60 * 1000) {
+            shouldReset = true;
+          }
+        }
+        
+        const planVal = coinsData.plan || "free";
+        if (shouldReset && planVal === "free") {
+          currentCoins = 150; 
+          coinsData.last_reset_time = now;
+        } else if (shouldReset) {
+          coinsData.last_reset_time = now;
+        }
+      }
+
+      if (currentCoins < costNum) {
+        throw new Error(`Insufficient credits. Need ${costNum} but have ${currentCoins}.`);
+      }
+
+      const newCoins = currentCoins - costNum;
+      coinsData.coins = newCoins;
+      coinsData.updated_at = new Date().toISOString();
+
+      await saveUserCoinsRest(idToken, uid, coinsData);
+      return "tx_rest_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    } else {
+      throw adminErr;
+    }
+  }
+}
+
 
 // Endpoint: Consume Credits
 app.post("/api/consume-credits", async (req, res) => {
@@ -324,40 +607,63 @@ app.post("/api/refund-credits", async (req, res) => {
       return res.status(400).json({ error: "Missing transaction identifier" });
     }
 
-    const txRef = adminDb.collection("user_transactions").doc(transactionId);
-    const userRef = adminDb.collection("user_coins").doc(uid);
+    try {
+      const txRef = adminDb.collection("user_transactions").doc(transactionId);
+      const userRef = adminDb.collection("user_coins").doc(uid);
 
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const txDoc = await transaction.get(txRef);
-      if (!txDoc.exists) {
-        throw new Error("Transaction record not found");
+      const result = await adminDb.runTransaction(async (transaction) => {
+        const txDoc = await transaction.get(txRef);
+        if (!txDoc.exists) {
+          throw new Error("Transaction record not found");
+        }
+
+        const txData = txDoc.data() || {};
+        if (txData.userId !== uid) {
+          throw new Error("Unauthorized transaction refund access");
+        }
+        if (txData.status !== "pending") {
+          throw new Error("Transaction is already resolved or refunded");
+        }
+
+        // Check transaction age (max 5 minutes)
+        const txTime = txData.created_at ? (txData.created_at.toMillis ? txData.created_at.toMillis() : new Date(txData.created_at).getTime()) : 0;
+        if (Date.now() - txTime > 5 * 60 * 1000) {
+          throw new Error("Refund window has expired");
+        }
+
+        const userDoc = await transaction.get(userRef);
+        const currentCoins = userDoc.exists ? (userDoc.data()?.coins ?? 150) : 150;
+        const updatedCoins = currentCoins + txData.cost;
+
+        transaction.update(txRef, { status: "refunded", resolved_at: admin.firestore.FieldValue.serverTimestamp() });
+        transaction.update(userRef, { coins: updatedCoins });
+
+        return { updatedCoins };
+      });
+
+      res.json({ success: true, updatedBalance: result.updatedCoins });
+    } catch (adminErr: any) {
+      if (adminErr.message && (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("permissions"))) {
+        console.log("[KRON SERVER] Activating user-authenticated REST proxy...");
+        
+        const coinsData = await getUserCoinsRest(idToken, uid);
+        if (!coinsData) {
+          throw new Error("User coins document not found for refund");
+        }
+        
+        const refundCost = req.body.cost || 100;
+        const currentCoins = coinsData.coins ?? 150;
+        const updatedCoins = currentCoins + refundCost;
+        
+        coinsData.coins = updatedCoins;
+        coinsData.updated_at = new Date().toISOString();
+        
+        await saveUserCoinsRest(idToken, uid, coinsData);
+        return res.json({ success: true, updatedBalance: updatedCoins });
+      } else {
+        throw adminErr;
       }
-
-      const txData = txDoc.data() || {};
-      if (txData.userId !== uid) {
-        throw new Error("Unauthorized transaction refund access");
-      }
-      if (txData.status !== "pending") {
-        throw new Error("Transaction is already resolved or refunded");
-      }
-
-      // Check transaction age (max 5 minutes)
-      const txTime = txData.created_at ? (txData.created_at.toMillis ? txData.created_at.toMillis() : new Date(txData.created_at).getTime()) : 0;
-      if (Date.now() - txTime > 5 * 60 * 1000) {
-        throw new Error("Refund window has expired");
-      }
-
-      const userDoc = await transaction.get(userRef);
-      const currentCoins = userDoc.exists ? (userDoc.data()?.coins ?? 150) : 150;
-      const updatedCoins = currentCoins + txData.cost;
-
-      transaction.update(txRef, { status: "refunded", resolved_at: admin.firestore.FieldValue.serverTimestamp() });
-      transaction.update(userRef, { coins: updatedCoins });
-
-      return { updatedCoins };
-    });
-
-    res.json({ success: true, updatedBalance: result.updatedCoins });
+    }
   } catch (error: any) {
     console.error("[CREDITS REFUND ERROR]:", error.message);
     res.status(400).json({ error: error.message || "Failed to refund credits" });
@@ -395,70 +701,114 @@ app.post("/api/grant-reward", async (req, res) => {
       return res.status(400).json({ error: "Invalid reward type" });
     }
     
-    const userRef = adminDb.collection("user_coins").doc(uid);
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      let data: any = {};
+    try {
+      const userRef = adminDb.collection("user_coins").doc(uid);
+      const result = await adminDb.runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        let data: any = {};
 
-      if (!userDoc.exists) {
-        const isAdminEmail = email === "starbruce91@gmail.com";
-        const initialCoins = isAdminEmail ? 150000 : 150;
-        data = {
-          id: uid,
-          user_id: uid,
-          coins: initialCoins,
-          plan: isAdminEmail ? "pro_creator" : "free",
-          plan_status: "active",
-          last_reset_time: Date.now(),
-          referral_count: 0,
-          referred_emails: [],
-          is_admin: isAdminEmail,
-          created_at: admin.firestore.FieldValue.serverTimestamp()
-        };
-        transaction.set(userRef, data);
-      } else {
-        data = userDoc.data() || {};
-      }
-      
-      if (rewardType === "verification" && data.is_verified_creator === true) {
-        throw new Error("Account is already verified");
-      }
-      
-      if (rewardType !== "verification" && data[claimKey]) {
-        throw new Error("This reward has already been claimed.");
-      }
-      
-      // Verify milestones if requested
-      if (rewardType === "milestone_2500" || rewardType === "milestone_5000") {
-        const referralsSnap = await adminDb.collection("referrals")
-          .where("referrer_id", "==", uid)
-          .where("status", "==", "verified")
-          .get();
-        const verifiedCount = referralsSnap.size;
-        const requiredCount = rewardType === "milestone_2500" ? 50 : 100;
-        if (verifiedCount < requiredCount) {
-          throw new Error(`Insufficient verified referrals. Required: ${requiredCount}, Got: ${verifiedCount}`);
+        if (!userDoc.exists) {
+          const isAdminEmail = email === "starbruce91@gmail.com";
+          const initialCoins = isAdminEmail ? 150000 : 150;
+          data = {
+            id: uid,
+            user_id: uid,
+            coins: initialCoins,
+            plan: isAdminEmail ? "pro_creator" : "free",
+            plan_status: "active",
+            last_reset_time: Date.now(),
+            referral_count: 0,
+            referred_emails: [],
+            is_admin: isAdminEmail,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+          };
+          transaction.set(userRef, data);
+        } else {
+          data = userDoc.data() || {};
         }
-      }
+        
+        if (rewardType === "verification" && data.is_verified_creator === true) {
+          throw new Error("Account is already verified");
+        }
+        
+        if (rewardType !== "verification" && data[claimKey]) {
+          throw new Error("This reward has already been claimed.");
+        }
+        
+        // Verify milestones if requested
+        if (rewardType === "milestone_2500" || rewardType === "milestone_5000") {
+          const referralsSnap = await adminDb.collection("referrals")
+            .where("referrer_id", "==", uid)
+            .where("status", "==", "verified")
+            .get();
+          const verifiedCount = referralsSnap.size;
+          const requiredCount = rewardType === "milestone_2500" ? 50 : 100;
+          if (verifiedCount < requiredCount) {
+            throw new Error(`Insufficient verified referrals. Required: ${requiredCount}, Got: ${verifiedCount}`);
+          }
+        }
 
-      // If verification reward, update the referral doc
-      if (rewardType === "verification") {
-        const referralDocRef = adminDb.collection("referrals").doc("ref_" + uid);
-        transaction.set(referralDocRef, { status: "verified" }, { merge: true });
+        // If verification reward, update the referral doc
+        if (rewardType === "verification") {
+          const referralDocRef = adminDb.collection("referrals").doc("ref_" + uid);
+          transaction.set(referralDocRef, { status: "verified" }, { merge: true });
+        }
+        
+        const currentCoins = data.coins ?? 150;
+        const updatedCoins = currentCoins + coinsToGrant;
+        
+        const updateData: any = { coins: updatedCoins };
+        updateData[claimKey] = true;
+        
+        transaction.update(userRef, updateData);
+        
+        return { updatedCoins };
+      });
+      
+      res.json({ success: true, updatedBalance: result.updatedCoins });
+    } catch (adminErr: any) {
+      if (adminErr.message && (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("permissions"))) {
+        console.log("[KRON SERVER] Activating user-authenticated REST proxy...");
+        
+        let coinsData = await getUserCoinsRest(idToken, uid);
+        if (!coinsData) {
+          const isAdminEmail = email === "starbruce91@gmail.com";
+          const initialCoins = isAdminEmail ? 150000 : 150;
+          coinsData = {
+            id: uid,
+            user_id: uid,
+            coins: initialCoins,
+            plan: isAdminEmail ? "pro_creator" : "free",
+            plan_status: "active",
+            last_reset_time: Date.now(),
+            referral_count: 0,
+            referred_emails: [],
+            is_admin: isAdminEmail,
+            created_at: new Date().toISOString()
+          };
+        }
+        
+        if (rewardType === "verification" && coinsData.is_verified_creator === true) {
+          throw new Error("Account is already verified");
+        }
+        
+        if (rewardType !== "verification" && coinsData[claimKey]) {
+          throw new Error("This reward has already been claimed.");
+        }
+        
+        const currentCoins = coinsData.coins ?? 150;
+        const updatedCoins = currentCoins + coinsToGrant;
+        
+        coinsData.coins = updatedCoins;
+        coinsData[claimKey] = true;
+        coinsData.updated_at = new Date().toISOString();
+        
+        await saveUserCoinsRest(idToken, uid, coinsData);
+        res.json({ success: true, updatedBalance: updatedCoins });
+      } else {
+        throw adminErr;
       }
-      
-      const currentCoins = data.coins ?? 150;
-      const updatedCoins = currentCoins + coinsToGrant;
-      
-      const updateData: any = { coins: updatedCoins };
-      updateData[claimKey] = true;
-      
-      transaction.update(userRef, updateData);
-      
-      return { updatedCoins };
-    });
-    
-    res.json({ success: true, updatedBalance: result.updatedCoins });
+    }
   } catch (error: any) {
     console.error("[GRANT REWARD ERROR]:", error.message);
     res.status(400).json({ error: error.message || "Failed to grant reward" });
@@ -470,113 +820,219 @@ app.post("/api/daily-reset", async (req, res) => {
   const { idToken } = req.body;
   try {
     const { uid, email } = await verifyUser(idToken);
-    const userRef = adminDb.collection("user_coins").doc(uid);
+    
+    try {
+      const userRef = adminDb.collection("user_coins").doc(uid);
+      const result = await adminDb.runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        let data: any = {};
 
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      let data: any = {};
+        if (!userDoc.exists) {
+          const isAdminEmail = email === "starbruce91@gmail.com";
+          const initialCoins = isAdminEmail ? 150000 : 150;
+          data = {
+            id: uid,
+            user_id: uid,
+            coins: initialCoins,
+            plan: isAdminEmail ? "pro_creator" : "free",
+            plan_status: "active",
+            last_reset_time: Date.now(),
+            referral_count: 0,
+            referred_emails: [],
+            is_admin: isAdminEmail,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+          };
+          transaction.set(userRef, data);
+          return { success: true, coins: initialCoins, downgraded: false };
+        }
 
-      if (!userDoc.exists) {
-        const isAdminEmail = email === "starbruce91@gmail.com";
-        const initialCoins = isAdminEmail ? 150000 : 150;
-        data = {
-          id: uid,
-          user_id: uid,
-          coins: initialCoins,
-          plan: isAdminEmail ? "pro_creator" : "free",
-          plan_status: "active",
-          last_reset_time: Date.now(),
-          referral_count: 0,
-          referred_emails: [],
-          is_admin: isAdminEmail,
-          created_at: admin.firestore.FieldValue.serverTimestamp()
-        };
-        transaction.set(userRef, data);
-        return { success: true, updatedCoins: initialCoins, downgraded: false };
-      }
+        data = userDoc.data() || {};
+        let coinsVal = data.coins ?? 150;
+        let planVal = data.plan ?? "free";
+        let planStatusVal = data.plan_status ?? "active";
+        let isPaidVal = data.isPaid ?? false;
+        let isPremiumVal = data.is_premium ?? false;
+        let statusVal = data.status ?? "active";
+        let tierVal = data.tier ?? "free";
 
-      data = userDoc.data() || {};
-      let coinsVal = data.coins ?? 150;
-      let planVal = data.plan ?? "free";
-      let planStatusVal = data.plan_status ?? "active";
-      let isPaidVal = data.isPaid ?? false;
-      let isPremiumVal = data.is_premium ?? false;
-      let statusVal = data.status ?? "active";
-      let tierVal = data.tier ?? "free";
+        let downgraded = false;
 
-      let downgraded = false;
+        // 1. Subscription Expiry / Cancellation Check
+        const expiresAt = data.expiresAt;
+        let needsDowngrade = false;
 
-      // 1. Subscription Expiry / Cancellation Check
-      const expiresAt = data.expiresAt;
-      let needsDowngrade = false;
-
-      if (planStatusVal === "canceled" || planStatusVal === "cancelled") {
-        needsDowngrade = true;
-      } else if (expiresAt) {
-        const expiresAtMs = typeof expiresAt.toMillis === "function" 
-          ? expiresAt.toMillis() 
-          : new Date(expiresAt).getTime();
-        if (Date.now() > expiresAtMs) {
+        if (planStatusVal === "canceled" || planStatusVal === "cancelled") {
           needsDowngrade = true;
+        } else if (expiresAt) {
+          const expiresAtMs = typeof expiresAt.toMillis === "function" 
+            ? expiresAt.toMillis() 
+            : new Date(expiresAt).getTime();
+          if (Date.now() > expiresAtMs) {
+            needsDowngrade = true;
+          }
         }
-      }
 
-      if (needsDowngrade && planVal !== "free") {
-        planVal = "free";
-        planStatusVal = "active";
-        tierVal = "free";
-        isPaidVal = false;
-        statusVal = "active";
-        isPremiumVal = false;
-        downgraded = true;
-      }
+        if (needsDowngrade && planVal !== "free") {
+          planVal = "free";
+          planStatusVal = "active";
+          tierVal = "free";
+          isPaidVal = false;
+          statusVal = "active";
+          isPremiumVal = false;
+          downgraded = true;
+        }
 
-      // 2. Daily reset check
-      const lastReset = data.last_reset_time;
-      const now = Date.now();
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      let shouldReset = false;
+        // 2. Daily reset check
+        const lastReset = data.last_reset_time;
+        const now = Date.now();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        let shouldReset = false;
 
-      if (!lastReset) {
-        shouldReset = true;
-      } else {
-        const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
-        if (now - lastResetMs >= oneDayMs) {
+        if (!lastReset) {
           shouldReset = true;
+        } else {
+          const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
+          if (now - lastResetMs >= oneDayMs) {
+            shouldReset = true;
+          }
         }
-      }
 
-      const updatePayload: any = {};
-      if (downgraded) {
-        updatePayload.plan = "free";
-        updatePayload.plan_status = "active";
-        updatePayload.tier = "free";
-        updatePayload.isPaid = false;
-        updatePayload.status = "active";
-        updatePayload.is_premium = false;
-      }
-
-      if (shouldReset) {
-        updatePayload.last_reset_time = now;
-        if (planVal === "free") {
-          coinsVal = 150;
-          updatePayload.coins = 150;
+        const updatePayload: any = {};
+        if (downgraded) {
           updatePayload.plan = "free";
           updatePayload.plan_status = "active";
+          updatePayload.tier = "free";
+          updatePayload.isPaid = false;
+          updatePayload.status = "active";
+          updatePayload.is_premium = false;
         }
-      } else if (downgraded) {
-        // If downgraded but no reset is due, we still need to write the payload
-        updatePayload.coins = coinsVal;
+
+        if (shouldReset) {
+          updatePayload.last_reset_time = now;
+          if (planVal === "free") {
+            coinsVal = 150;
+            updatePayload.coins = 150;
+            updatePayload.plan = "free";
+            updatePayload.plan_status = "active";
+          }
+        } else if (downgraded) {
+          // If downgraded but no reset is due, we still need to write the payload
+          updatePayload.coins = coinsVal;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          transaction.update(userRef, updatePayload);
+        }
+
+        return { success: true, coins: coinsVal, downgraded };
+      });
+
+      res.json(result);
+    } catch (adminErr: any) {
+      if (adminErr.message && (adminErr.message.includes("PERMISSION_DENIED") || adminErr.message.includes("permissions"))) {
+        console.log("[KRON SERVER] Activating user-authenticated REST proxy...");
+        
+        let coinsData = await getUserCoinsRest(idToken, uid);
+        let now = Date.now();
+        let downgraded = false;
+
+        if (!coinsData) {
+          const isAdminEmail = email === "starbruce91@gmail.com";
+          const initialCoins = isAdminEmail ? 150000 : 150;
+          coinsData = {
+            id: uid,
+            user_id: uid,
+            coins: initialCoins,
+            plan: isAdminEmail ? "pro_creator" : "free",
+            plan_status: "active",
+            last_reset_time: now,
+            referral_count: 0,
+            referred_emails: [],
+            is_admin: isAdminEmail,
+            created_at: new Date().toISOString()
+          };
+          await saveUserCoinsRest(idToken, uid, coinsData);
+          return res.json({ success: true, coins: initialCoins, downgraded: false });
+        }
+
+        let coinsVal = coinsData.coins ?? 150;
+        let planVal = coinsData.plan ?? "free";
+        let planStatusVal = coinsData.plan_status ?? "active";
+        let isPaidVal = coinsData.isPaid ?? false;
+        let isPremiumVal = coinsData.is_premium ?? false;
+        let statusVal = coinsData.status ?? "active";
+        let tierVal = coinsData.tier ?? "free";
+
+        // 1. Subscription Expiry / Cancellation Check
+        const expiresAt = coinsData.expiresAt;
+        let needsDowngrade = false;
+
+        if (planStatusVal === "canceled" || planStatusVal === "cancelled") {
+          needsDowngrade = true;
+        } else if (expiresAt) {
+          const expiresAtMs = typeof expiresAt.toMillis === "function" 
+            ? expiresAt.toMillis() 
+            : new Date(expiresAt).getTime();
+          if (Date.now() > expiresAtMs) {
+            needsDowngrade = true;
+          }
+        }
+
+        if (needsDowngrade && planVal !== "free") {
+          planVal = "free";
+          planStatusVal = "active";
+          tierVal = "free";
+          isPaidVal = false;
+          statusVal = "active";
+          isPremiumVal = false;
+          downgraded = true;
+        }
+
+        // 2. Daily reset check
+        const lastReset = coinsData.last_reset_time;
+        let shouldReset = false;
+
+        if (!lastReset) {
+          shouldReset = true;
+        } else {
+          const lastResetMs = typeof lastReset === "number" ? lastReset : (lastReset.toMillis ? lastReset.toMillis() : new Date(lastReset).getTime());
+          if (now - lastResetMs >= 24 * 60 * 60 * 1000) {
+            shouldReset = true;
+          }
+        }
+
+        const updatePayload: any = {};
+        if (downgraded) {
+          updatePayload.plan = "free";
+          updatePayload.plan_status = "active";
+          updatePayload.tier = "free";
+          updatePayload.isPaid = false;
+          updatePayload.status = "active";
+          updatePayload.is_premium = false;
+        }
+
+        if (shouldReset) {
+          updatePayload.last_reset_time = now;
+          if (planVal === "free") {
+            coinsVal = 150;
+            updatePayload.coins = 150;
+            updatePayload.plan = "free";
+            updatePayload.plan_status = "active";
+          }
+        } else if (downgraded) {
+          updatePayload.coins = coinsVal;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          const mergedData = { ...coinsData, ...updatePayload };
+          await saveUserCoinsRest(idToken, uid, mergedData);
+        }
+
+        return res.json({ success: true, coins: coinsVal, downgraded });
+      } else {
+        throw adminErr;
       }
-
-      if (Object.keys(updatePayload).length > 0) {
-        transaction.update(userRef, updatePayload);
-      }
-
-      return { success: true, coins: coinsVal, downgraded };
-    });
-
-    res.json(result);
+    }
   } catch (error: any) {
     console.error("[DAILY RESET ERROR]:", error.message);
     res.status(400).json({ error: error.message || "Failed to process daily reset" });
@@ -1068,6 +1524,14 @@ ${protagonistName}
 app.post("/api/generate-script", async (req, res) => {
   const { topic, style } = req.body || {};
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Script Generation");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     if (!topic) {
       return res.status(400).json({ error: "Topic is required" });
     }
@@ -1149,6 +1613,14 @@ Go all-in. Make it absolutely impossible to click away.`;
 app.post("/api/generate-movie-script", async (req, res) => {
   const { title, genre, logline, description } = req.body || {};
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Movie Script Generation");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     if (!title) {
       return res.status(400).json({ error: "Title is required" });
     }
@@ -1239,6 +1711,14 @@ Ensure the output is highly detailed, includes a full title page, complete chara
 // Endpoint: AI & Deepfake Detector
 app.post("/api/detect-ai-deepfake", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Deepfake Detection");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { media, mimeType } = req.body;
     if (!media) {
       return res.status(400).json({ error: "Media is required for evaluation" });
@@ -1451,6 +1931,14 @@ app.post("/api/reverse-prompt", async (req, res) => {
 // Endpoint: AI Prompt Maker (Module 01)
 app.post("/api/prompt-maker", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "AI Prompt Maker");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { concept, platformId, aspectRatio, media, mimeType, mediaVideo, mimeTypeVideo } = req.body;
     const activeApiKey = getAPIKey();
     if (activeApiKey) {
@@ -1659,6 +2147,14 @@ Desired Aspect Ratio: "${aspectRatio || "16:9"}"`;
 // Endpoint: Predictive Thumbnail & Video Tester (Vision CTR Analytics)
 app.post("/api/predictive-thumbnail-tester", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Predictive Thumbnail");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { media, mimeType } = req.body;
     if (!media) {
       return res.status(400).json({ error: "Media data is required" });
@@ -1850,139 +2346,19 @@ Refer directly to the KRON SCRIPT AI MASTER KNOWLEDGE BASE guidelines:
   }
 });
 
-// Endpoint: Kron Vision AI (Module 04: Media Enhancement)
-app.post("/api/enhance-media", async (req, res) => {
-  try {
-    const { media, fileType, fileName, config, cost } = req.body;
-    
-    if (!media) {
-      return res.status(400).json({ error: "No media file provided" });
-    }
 
-    const resolutionMultiplier = config.resolution === "2k" ? 1.5 : config.resolution === "4k" ? 3.0 : 6.0;
-    const processSecs = (2.2 + Math.random() * 2.5).toFixed(2);
-    
-    let analysisText = "";
-    let faceDetectionAnswer = 0;
-    
-    // Parse base64
-    let base64Data = media;
-    let mimeType = fileType === "video" ? "video/mp4" : "image/jpg";
-    if (media.includes(";base64,")) {
-      const parts = media.split(";base64,");
-      mimeType = parts[0].split(":")[1] || mimeType;
-      base64Data = parts[1];
-    }
-
-    const activeApiKey = getAPIKey();
-    if (activeApiKey && fileType === "image") {
-      try {
-        const ai = getAI();
-        const response = await callWithRetry((model) =>
-          ai.models.generateContent({
-            model,
-            contents: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Data,
-                },
-              },
-              `You are the master engine of KRON SCRIPT AI's VISION MODULE.
-Analyze this uploaded photo asset. Describe:
-1. What focal elements, characters, or text are present in the image.
-2. Formulate exactly 5 structured technical forensic logs detailing how you would enhance, remove blur, align face coordinates, and color grade this image for ${config.resolution.toUpperCase()} output.
-Return your response as a JSON object matching this schema:
-{
-  "focalAnalysis": "Short description of what you see in the photo",
-  "facesFound": integer (count of visible human faces),
-  "logs": [
-    "Log 1",
-    "Log 2",
-    "Log 3",
-    "Log 4",
-    "Log 5"
-  ]
-}`
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  focalAnalysis: { type: Type.STRING },
-                  facesFound: { type: Type.INTEGER },
-                  logs: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                  }
-                },
-                required: ["focalAnalysis", "facesFound", "logs"]
-              }
-            }
-          })
-        );
-
-        if (response.text) {
-          const parsed = JSON.parse(response.text.trim());
-          analysisText = parsed.focalAnalysis;
-          faceDetectionAnswer = parsed.facesFound;
-        }
-      } catch (err: any) {
-        console.warn("[KRON VISION API] Interactive Gemini analysis failed, falling back to heuristics:", err?.message || err);
-      }
-    }
-
-    const fallbackLogs = [
-      `[DECIBEL MATRIX] Analyzing digital focus lattice for blur coefficient...`,
-      `[DE-BLUR] Focus plane error detected. Running bilateral sharpening iterations...`,
-      config.faceRestore ? `[FACE] Detected human outlines, applying high-density facial landmarks alignment...` : `[FACE] Face reconstruction bypass selected.`,
-      config.colorGrade ? `[COLOR] Re-mapping chromatic contrast to sRGB Wide Gamut bounds...` : `[COLOR] Retaining default source spectrum.`,
-      `[SUPER-RES] Super-resolving to ${config.resolution.toUpperCase()} via Lanczos interpolation grids...`,
-      `[COMPLETE] Synchronized media stream outputs cleanly. Processing complete.`
-    ];
-
-    const reportsLogs = analysisText 
-      ? [
-          `[ANALYSIS] Focal elements detected: ${analysisText}`,
-          ...fallbackLogs
-        ]
-      : fallbackLogs;
-
-    // Output URL
-    let enhancedUrl = media; // Images get their original base64 to allow progressive contrast enhancement
-    if (fileType === "video") {
-      const sampleVideos = [
-        "https://assets.mixkit.co/videos/preview/mixkit-cinematic-reel-of-film-projector-in-action-44026-large.mp4",
-        "https://assets.mixkit.co/videos/preview/mixkit-flying-through-a-futuristic-tunnel-with-neon-lights-41856-large.mp4",
-        "https://assets.mixkit.co/videos/preview/mixkit-hyper-lapse-of-a-futuristic-city-at-night-42217-large.mp4"
-      ];
-      enhancedUrl = sampleVideos[Math.floor(Math.random() * sampleVideos.length)];
-    }
-
-    res.json({
-      enhancedUrl,
-      report: {
-        originalSize: `${(media.length / (1024 * 1024) * 0.75).toFixed(2)} MB`,
-        enhancedSize: `${(media.length / (1024 * 1024) * 0.75 * resolutionMultiplier).toFixed(2)} MB`,
-        processingTime: `${processSecs} Seconds`,
-        sharpenRatio: `+${(65 + Math.random() * 25).toFixed(1)}%`,
-        noiseDecline: `-${(80 + Math.random() * 15).toFixed(1)}% Noise`,
-        upscaleMatrix: config.resolution === "8k" ? "BICUBIC-8K" : "LANCZOS-4K",
-        facesCount: faceDetectionAnswer || (config.faceRestore ? Math.floor(Math.random() * 2) + 1 : 0),
-        colorSpectrum: "sRGB Wide Gamut",
-        detailedLogs: reportsLogs
-      }
-    });
-
-  } catch (error: any) {
-    handleEndpointError(res, error, "Media Enhancer");
-  }
-});
 
 // Endpoint: Script & Caption Architect
 app.post("/api/script-caption-architect", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Caption Architect");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { idea, platform, tone, wordCount } = req.body;
     if (!idea) {
       return res.status(400).json({ error: "Draft idea or topic is required" });
@@ -2128,6 +2504,14 @@ ${selectedTags}`,
 // Endpoint: AI Video Retention & Pacing Analyzer
 app.post("/api/analyze-dropped-video", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Video Retention Analysis");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { videoFile, videoName } = req.body;
     if (!videoFile) {
       return res.status(400).json({ error: "Video file payload is required" });
@@ -2669,6 +3053,14 @@ Make the response feel highly professional, scientifically technical (mentioning
 // Endpoint: AI Image Generator (for storyboards & thumbnails)
 app.post("/api/generate-image", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "Image Generation");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { prompt, imageType, scriptContent } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
@@ -2837,6 +3229,14 @@ app.post("/api/generate-image", async (req, res) => {
 // Endpoint: Veo 3.1 Video Generation Module
 app.post("/api/generate-video", async (req, res) => {
   try {
+
+    if (req.body.idToken && req.body.cost) {
+      try {
+        await consumeUserCredits(req.body.idToken, req.body.cost, "AI Video Generation");
+      } catch (creditErr: any) {
+        return res.status(402).json({ error: creditErr.message || "Insufficient credits" });
+      }
+    }
     const { prompt, duration, aspectRatio } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });

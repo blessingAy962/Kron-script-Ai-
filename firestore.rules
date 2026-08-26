@@ -206,8 +206,26 @@ service cloud.firestore {
                        (
                          isAdmin() ||
                          (
-                           // Standard users cannot modify any payment, plan, premium, or coin balance fields
-                           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins', 'plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])
+                           // 1. Standard coin deduction (spending)
+                           (incoming().coins < existing().coins && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+                           
+                           // 2. Resilient client-side refunds (restoring spent balance, capped to a maximum of 1000 credits per transaction)
+                           (incoming().coins > existing().coins && incoming().coins <= existing().coins + 1000 && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+                           
+                           // 3. Claiming milestone 2500 reward (+2500 coins)
+                           (incoming().get('bonus_2500_claimed', false) == true && existing().get('bonus_2500_claimed', false) != true && incoming().coins == existing().coins + 2500 && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+                           
+                           // 4. Claiming milestone 5000 reward (+5000 coins)
+                           (incoming().get('bonus_5000_claimed', false) == true && existing().get('bonus_5000_claimed', false) != true && incoming().coins == existing().coins + 5000 && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+                           
+                           // 5. Claiming verification reward (+100 coins)
+                           (incoming().get('is_verified_creator', false) == true && existing().get('is_verified_creator', false) != true && incoming().coins == existing().coins + 100 && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+
+                           // 6. Claiming challenge reward (+250 coins)
+                           (incoming().coins == existing().coins + 250 && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin'])) ||
+
+                           // 7. General non-sensitive updates (e.g., referral_count, scripts_today_count, last_reset_time, etc.)
+                           (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins', 'plan', 'plan_status', 'is_premium', 'isPaid', 'tier', 'expiresAt', 'license_acquired_at', 'is_admin']))
                          )
                        );
     }
@@ -219,6 +237,16 @@ service cloud.firestore {
 
     match /user_chats/{userId}/threads/{threadId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
   }
 }

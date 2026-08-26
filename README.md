@@ -27,7 +27,6 @@ Kron Script AI acts as a cohesive full-pipeline studio that manages the lifecycl
 2. **The Script (Celtx Screenplay Editor)**: Format raw ideas into standard screenplay format with Scene Headings, Action lines, Parentheticals, and Characters.
 3. **The Visuals (Prompt Studio)**: Leverage our custom **Daily Realistic Prompt Series** to construct high-fidelity prompt cards for hyper-realistic renders.
 4. **The Setup (Production Safe-Zones)**: View overlays for aspect ratios (9:16, 16:9, 1:1) to keep subject matter centered and text inside social media UI safe-zones.
-5. **The Quality Check (Multimodal Vision AI)**: Upload thumbnails or keyframes to diagnose heatmaps, CTR forecasts, and color grading.
 
 ---
 

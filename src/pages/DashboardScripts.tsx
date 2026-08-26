@@ -5,7 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { toast } from "sonner";
 import { db } from "@/src/lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, onSnapshot, setDoc } from "@/src/lib/firebase";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, onSnapshot, setDoc, auth } from "@/src/lib/firebase";
 import { useAuth } from "@/src/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -88,7 +88,11 @@ export default function DashboardScripts() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ topic, style: selectedStyle }),
+        body: JSON.stringify({ 
+          topic, style: selectedStyle,
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: 10
+        }),
       });
 
       if (!resp.ok) {

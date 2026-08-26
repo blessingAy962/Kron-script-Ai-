@@ -6,7 +6,7 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { toast } from "sonner";
 import { db } from "@/src/lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "@/src/lib/firebase";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, auth, serverTimestamp } from "@/src/lib/firebase";
 import { useAuth } from "@/src/hooks/useAuth";
 import { MAINTENANCE_CONFIG } from "@/src/config/maintenanceConfig";
 import { MaintenanceNotice } from "@/src/components/MaintenanceNotice";
@@ -70,7 +70,11 @@ export default function DashboardImages() {
       const resp = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, imageType: aspectRatio }),
+        body: JSON.stringify({ 
+          prompt, imageType: aspectRatio,
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: 5
+        }),
       });
 
       if (!resp.ok) {

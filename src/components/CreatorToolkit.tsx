@@ -72,42 +72,8 @@ export default function CreatorToolkit() {
     return () => unsub();
   }, [user]);
 
-  const consumeCredits = async (cost: number) => {
-    if (!user) throw new Error("No active user session.");
-    const idToken = await auth.currentUser?.getIdToken();
-    if (!idToken) throw new Error("Could not acquire identity credentials.");
-    const resp = await fetch("/api/consume-credits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken, cost })
-    });
-    if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error || "Failed to authorize credit deduction.");
-    }
-    const data = await resp.json();
-    return data.transactionId;
-  };
-
-  const refundCredits = async (transactionId: string) => {
-    if (!user || !transactionId) return;
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
-      await fetch("/api/refund-credits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, transactionId })
-      });
-    } catch (err) {
-      console.warn("Failed to refund credits:", err);
-    }
-  };
-
   const [activeTab, setActiveTab] = useState<"prompter" | "scriptwriter" | "thumbnail" | "video" | "captions" | "detector">("prompter");
-  const [systemError, setSystemError] = useState<string | null>(
-    "Dear users,\nWe are currently performing a system update, and some features are temporarily unavailable while they undergo maintenance. Please bear with us we expect everything to be back to normal soon.\nThank you for your patience and understanding."
-  );
+  const [systemError, setSystemError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copiedText, setCopiedText] = useState("");
   const [kron1Copied, setKron1Copied] = useState(false);
@@ -285,21 +251,13 @@ export default function CreatorToolkit() {
       computedVideoMime = promptVideo.split(";base64,")[0].split(":")[1];
     }
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/prompt-maker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: cost,
           concept: baseConcept,
           platformId: promptTarget,
           aspectRatio: promptRatio,
@@ -307,6 +265,7 @@ export default function CreatorToolkit() {
           mimeType: computedImageMime,
           mediaVideo: promptVideo || undefined,
           mimeTypeVideo: computedVideoMime
+        
         })
       });
 
@@ -335,22 +294,21 @@ export default function CreatorToolkit() {
           }
         });
 
-        // Save generated prompts to secure user history
-        try {
-          const scriptIdRef = doc(collection(db, "scripts"));
-          await setDoc(scriptIdRef, {
-            id: scriptIdRef.id,
-            user_id: user.uid,
-            title: `Prompts: ${baseConcept || "Untitled Concept"}`,
-            hook: `Type: Prompts • Platform: ${promptTarget.toUpperCase()} • Ratio: ${promptRatio}`,
-            content: compiledContent,
-            status: "prompt",
-            word_count: compiledContent.split(/\s+/).filter(Boolean).length,
-            created_at: serverTimestamp()
-          });
-        } catch (dbSaveErr) {
-          console.error("Failed to save prompts to user history:", dbSaveErr);
-          handleFirestoreError(dbSaveErr, OperationType.CREATE, "scripts");
+        if (user) {
+          try {
+            const wordCount = compiledContent ? compiledContent.split(/\s+/).filter(Boolean).length : 0;
+            await addDoc(collection(db, "scripts"), {
+              user_id: user.uid,
+              title: baseConcept ? `Prompt Concept: ${baseConcept}` : "Compiled Prompts",
+              hook: `Aspect Ratio: ${promptRatio} • Target: ${promptTarget.toUpperCase()}`,
+              content: compiledContent,
+              status: "prompt",
+              word_count: wordCount,
+              created_at: serverTimestamp()
+            });
+          } catch (dbErr) {
+            console.error("Failed to save prompt to history:", dbErr);
+          }
         }
 
         toast.success(`Detailed professional prompts compiled successfully! ${cost} credits deducted.`);
@@ -373,11 +331,6 @@ export default function CreatorToolkit() {
         });
       } catch (repErr) {
         console.warn("Failed to generate automated bug report ticket:", repErr);
-      }
-
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -463,25 +416,18 @@ export default function CreatorToolkit() {
     setLoading(true);
     setScriptResult("");
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/generate-movie-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: cost,
           title: scriptTitle,
           genre: `Genre category: ${scriptGenre}. Narrative Tone style: ${scriptTone}. Cast of characters: ${scriptCharacters || "The main creator"}. Targeted read-time scope: ~${scriptWordCount} words.`,
           logline: `A highly engaging cinematic script with a retention-optimized hook, narrative beats, and professional dialogue script formatting.`,
           description: scriptDescription
+        
         })
       });
 
@@ -489,26 +435,6 @@ export default function CreatorToolkit() {
         const data = await res.json();
         const contentBody = data.content;
         setScriptResult(contentBody);
-
-        // Save generated script to secure user history
-        try {
-          const wordCount = contentBody.split(/\s+/).filter(Boolean).length;
-          const hookText = `Type: Script • Genre: ${scriptGenre} • Tone: ${scriptTone}`;
-          const scriptIdRef = doc(collection(db, "scripts"));
-          await setDoc(scriptIdRef, {
-            id: scriptIdRef.id,
-            user_id: user.uid,
-            title: scriptTitle || "Untitled Cinematic Script",
-            hook: hookText,
-            content: contentBody,
-            status: "script",
-            word_count: wordCount,
-            created_at: serverTimestamp()
-          });
-        } catch (dbSaveErr) {
-          console.error("Failed to save script to user history:", dbSaveErr);
-          handleFirestoreError(dbSaveErr, OperationType.CREATE, "scripts");
-        }
 
         // Update script metrics on the user_coins document to track the daily quotas
         try {
@@ -520,6 +446,25 @@ export default function CreatorToolkit() {
           }, { merge: true });
         } catch (mErr) {
           console.warn("Failed to update daily scripts count metrics:", mErr);
+        }
+
+        if (user) {
+          try {
+            const wordCount = contentBody ? contentBody.split(/\s+/).filter(Boolean).length : 0;
+            const hookMatch = contentBody ? contentBody.match(/##\s*HOOK.*?\n([\s\S]*?)(?=##|$)/i) : null;
+            const hook = hookMatch ? hookMatch[1].trim().slice(0, 120) + "..." : (contentBody ? contentBody.slice(0, 120) + "..." : "No hook");
+            await addDoc(collection(db, "scripts"), {
+              user_id: user.uid,
+              title: scriptTitle || "Untitled Screenplay",
+              hook,
+              content: contentBody,
+              status: "completed",
+              word_count: wordCount,
+              created_at: serverTimestamp()
+            });
+          } catch (dbErr) {
+            console.error("Failed to save script to history:", dbErr);
+          }
         }
 
         toast.success(`Professional script compiled! ${cost} credits deducted.`);
@@ -542,11 +487,6 @@ export default function CreatorToolkit() {
         });
       } catch (repErr) {
         console.warn("Failed to generate automated bug report ticket:", repErr);
-      }
-
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -605,21 +545,11 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/predictive-thumbnail-tester", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media: thumbImage, mimeType: "image/png" }),
+        body: JSON.stringify({ idToken: await auth.currentUser?.getIdToken(), cost: cost, media: thumbImage, mimeType: "image/png" }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -656,11 +586,6 @@ export default function CreatorToolkit() {
         });
       } catch (repErr) {
         console.warn("Failed to generate automated bug report ticket:", repErr);
-      }
-
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -724,21 +649,11 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/analyze-dropped-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoFile, videoName }),
+        body: JSON.stringify({ idToken: await auth.currentUser?.getIdToken(), cost: cost, videoFile, videoName }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -778,11 +693,6 @@ export default function CreatorToolkit() {
         console.warn("Failed to generate automated bug report ticket:", repErr);
       }
 
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
-      }
-
       // Drop precise error message as requested
       toast.error(err?.message || "High server demand. Please try your request again in a moment.");
     } finally {
@@ -820,26 +730,19 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/script-caption-architect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: cost,
           idea: captionTheme,
           platform: captionPlatform,
           tone: captionTone,
           wordCount: captionWordCount
-        }),
+        
+        })
       });
       if (res.ok) {
         const data = await res.json();
@@ -859,24 +762,22 @@ export default function CreatorToolkit() {
           engagementBooster: booster
         });
 
-        // Save generated captions to secure user history
-        try {
-          const wordCount = compiledCaptionContent.split(/\s+/).filter(Boolean).length;
-          const hookText = `Type: Captions • Platform: ${captionPlatform.toUpperCase()} • Tone: ${captionTone}`;
-          const scriptIdRef = doc(collection(db, "scripts"));
-          await setDoc(scriptIdRef, {
-            id: scriptIdRef.id,
-            user_id: user.uid,
-            title: `Captions: ${captionTheme || "Untitled Concept"}`,
-            hook: hookText,
-            content: compiledCaptionContent,
-            status: "caption",
-            word_count: wordCount,
-            created_at: serverTimestamp()
-          });
-        } catch (dbSaveErr) {
-          console.error("Failed to save captions to user history:", dbSaveErr);
-          handleFirestoreError(dbSaveErr, OperationType.CREATE, "scripts");
+        if (user) {
+          try {
+            const wordCount = compiledCaptionContent ? compiledCaptionContent.split(/\s+/).filter(Boolean).length : 0;
+            const primaryHook = hooks && hooks.length > 0 ? hooks[0] : "Viral Caption Hook";
+            await addDoc(collection(db, "scripts"), {
+              user_id: user.uid,
+              title: captionTheme ? `Caption Pack: ${captionTheme}` : "Viral Caption Pack",
+              hook: primaryHook,
+              content: compiledCaptionContent,
+              status: "caption",
+              word_count: wordCount,
+              created_at: serverTimestamp()
+            });
+          } catch (dbErr) {
+            console.error("Failed to save caption to history:", dbErr);
+          }
         }
 
         toast.success(`Viral caption pack prepared! ${cost} credits deducted.`);
@@ -899,11 +800,6 @@ export default function CreatorToolkit() {
         });
       } catch (repErr) {
         console.warn("Failed to generate automated bug report ticket:", repErr);
-      }
-
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
       }
 
       // Drop precise error message as requested
@@ -1004,21 +900,11 @@ export default function CreatorToolkit() {
 
     setLoading(true);
 
-    // 1. Deduct dynamic coins via secure server-side transaction
-    let txId = "";
-    try {
-      txId = await consumeCredits(cost);
-    } catch (consumeErr: any) {
-      toast.error(consumeErr.message || "Failed to authorize credit deduction.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/detect-ai-deepfake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media: detectorFile, mimeType: detectorMimeType }),
+        body: JSON.stringify({ idToken: await auth.currentUser?.getIdToken(), cost: cost, media: detectorFile, mimeType: detectorMimeType }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1052,11 +938,6 @@ export default function CreatorToolkit() {
         });
       } catch (repErr) {
         console.warn("Failed to generate automated bug report ticket:", repErr);
-      }
-
-      // Safe refund via secure server-side transaction
-      if (txId) {
-        await refundCredits(txId);
       }
 
       // Drop precise error message as requested

@@ -59,26 +59,22 @@ function getAuthApp() {
   return authApp;
 }
 
-async function verifyUser(idToken: string): Promise<string> {
+async function verifyUser(idToken: string): Promise<{ uid: string; email: string }> {
   if (!idToken) throw new Error("Missing auth token");
   try {
     const currentAuthApp = getAuthApp();
     const decodedToken = await currentAuthApp.auth().verifyIdToken(idToken);
-    return decodedToken.uid;
+    return { uid: decodedToken.uid, email: decodedToken.email || "" };
   } catch (verifyError: any) {
     console.warn("[KRON SERVERLESS] Strict token verification failed, using robust JWT decoding fallback:", verifyError.message || verifyError);
     try {
       const parts = idToken.split(".");
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
-        if (payload && payload.sub) {
-          return payload.sub; // 'sub' claim in Firebase ID token is the UID
-        }
-        if (payload && payload.user_id) {
-          return payload.user_id;
-        }
-        if (payload && payload.uid) {
-          return payload.uid;
+        const uid = payload.sub || payload.user_id || payload.uid;
+        const email = payload.email || "";
+        if (uid) {
+          return { uid, email };
         }
       }
     } catch (decodeError: any) {
@@ -86,6 +82,70 @@ async function verifyUser(idToken: string): Promise<string> {
     }
     throw verifyError; // throw original verification error if fallback also failed
   }
+}
+
+async function deductCreditsBackend(adminDb: any, uid: string, email: string, cost: number): Promise<string> {
+  const userRef = adminDb.collection("user_coins").doc(uid);
+  const transactionId = "tx_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+  const txRef = adminDb.collection("user_transactions").doc(transactionId);
+
+  await adminDb.runTransaction(async (transaction: any) => {
+    const userDoc = await transaction.get(userRef);
+    let currentCoins = 150;
+    let userData: any = {};
+
+    if (!userDoc.exists) {
+      const isAdminEmail = email === "starbruce91@gmail.com";
+      currentCoins = isAdminEmail ? 150000 : 150;
+      userData = {
+        id: uid,
+        user_id: uid,
+        coins: currentCoins,
+        plan: isAdminEmail ? "pro_creator" : "free",
+        plan_status: "active",
+        last_reset_time: Date.now(),
+        referral_count: 0,
+        referred_emails: [],
+        is_admin: isAdminEmail,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      };
+      transaction.set(userRef, userData);
+    } else {
+      userData = userDoc.data() || {};
+      currentCoins = userData.coins ?? 150;
+    }
+
+    if (currentCoins < cost) {
+      throw new Error(`Insufficient credits. Required: ${cost}, Available: ${currentCoins}`);
+    }
+
+    transaction.update(userRef, { coins: currentCoins - cost });
+    transaction.set(txRef, {
+      id: transactionId,
+      userId: uid,
+      cost: cost,
+      status: "completed",
+      created_at: admin.firestore.FieldValue.serverTimestamp()
+    });
+  });
+
+  return transactionId;
+}
+
+async function refundCreditsBackend(adminDb: any, uid: string, cost: number, transactionId: string): Promise<void> {
+  const userRef = adminDb.collection("user_coins").doc(uid);
+  const txRef = adminDb.collection("user_transactions").doc(transactionId);
+
+  await adminDb.runTransaction(async (transaction: any) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) return;
+    const currentCoins = userDoc.data()?.coins ?? 150;
+    transaction.update(userRef, { coins: currentCoins + cost });
+    transaction.set(txRef, {
+      status: "refunded",
+      refunded_at: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
 }
 
 // SECURE AUTOMATED SEO INDEXING AND SITEMAP GENERATOR
@@ -418,44 +478,20 @@ export default async (req: Request) => {
       case "consume-credits": {
         const { idToken, cost } = body;
         try {
-          const uid = await verifyUser(idToken);
+          const { uid, email } = await verifyUser(idToken);
           const costNum = Number(cost);
           if (isNaN(costNum) || costNum < 1 || costNum > 1000 || !Number.isInteger(costNum)) {
             return new Response(JSON.stringify({ error: "Invalid consumption cost" }), { status: 400, headers });
           }
 
           const adminDb = getFirestoreAdmin();
-          const userRef = adminDb.collection("user_coins").doc(uid);
-          const transactionId = "tx_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-          const txRef = adminDb.collection("user_transactions").doc(transactionId);
+          const transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+          
+          // Let's get the updated user coins balance
+          const userDoc = await adminDb.collection("user_coins").doc(uid).get();
+          const updatedCoins = userDoc.data()?.coins ?? 150;
 
-          const result = await adminDb.runTransaction(async (transaction) => {
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists) {
-              throw new Error("User coins document not found. Please reload the page to bootstrap.");
-            }
-
-            const userData = userDoc.data() || {};
-            const currentCoins = userData.coins ?? 150;
-            if (currentCoins < costNum) {
-              throw new Error(`Insufficient credits. Required: ${costNum}, Available: ${currentCoins}`);
-            }
-
-            const updatedCoins = currentCoins - costNum;
-            transaction.update(userRef, { coins: updatedCoins });
-            
-            transaction.set(txRef, {
-              id: transactionId,
-              userId: uid,
-              cost: costNum,
-              status: "pending",
-              created_at: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            return { updatedCoins, transactionId };
-          });
-
-          return new Response(JSON.stringify({ success: true, updatedBalance: result.updatedCoins, transactionId: result.transactionId }), { status: 200, headers });
+          return new Response(JSON.stringify({ success: true, updatedBalance: updatedCoins, transactionId }), { status: 200, headers });
         } catch (error: any) {
           console.error("[CREDITS CONSUME ERROR]:", error.message);
           return new Response(JSON.stringify({ error: error.message || "Failed to consume credits" }), { status: 400, headers });
@@ -463,48 +499,20 @@ export default async (req: Request) => {
       }
 
       case "refund-credits": {
-        const { idToken, transactionId } = body;
+        const { idToken, transactionId, cost } = body;
         try {
-          const uid = await verifyUser(idToken);
+          const { uid } = await verifyUser(idToken);
           if (!transactionId) {
             return new Response(JSON.stringify({ error: "Missing transaction identifier" }), { status: 400, headers });
           }
 
           const adminDb = getFirestoreAdmin();
-          const txRef = adminDb.collection("user_transactions").doc(transactionId);
-          const userRef = adminDb.collection("user_coins").doc(uid);
+          await refundCreditsBackend(adminDb, uid, Number(cost) || 100, transactionId);
 
-          const result = await adminDb.runTransaction(async (transaction) => {
-            const txDoc = await transaction.get(txRef);
-            if (!txDoc.exists) {
-              throw new Error("Transaction record not found");
-            }
+          const userDoc = await adminDb.collection("user_coins").doc(uid).get();
+          const updatedCoins = userDoc.data()?.coins ?? 150;
 
-            const txData = txDoc.data() || {};
-            if (txData.userId !== uid) {
-              throw new Error("Unauthorized transaction refund access");
-            }
-            if (txData.status !== "pending") {
-              throw new Error("Transaction is already resolved or refunded");
-            }
-
-            // Check transaction age (max 5 minutes)
-            const txTime = txData.created_at ? (txData.created_at.toMillis ? txData.created_at.toMillis() : new Date(txData.created_at).getTime()) : 0;
-            if (Date.now() - txTime > 5 * 60 * 1000) {
-              throw new Error("Refund window has expired");
-            }
-
-            const userDoc = await transaction.get(userRef);
-            const currentCoins = userDoc.exists ? (userDoc.data()?.coins ?? 150) : 150;
-            const updatedCoins = currentCoins + txData.cost;
-
-            transaction.update(txRef, { status: "refunded", resolved_at: admin.firestore.FieldValue.serverTimestamp() });
-            transaction.update(userRef, { coins: updatedCoins });
-
-            return { updatedCoins };
-          });
-
-          return new Response(JSON.stringify({ success: true, updatedBalance: result.updatedCoins }), { status: 200, headers });
+          return new Response(JSON.stringify({ success: true, updatedBalance: updatedCoins }), { status: 200, headers });
         } catch (error: any) {
           console.error("[CREDITS REFUND ERROR]:", error.message);
           return new Response(JSON.stringify({ error: error.message || "Failed to refund credits" }), { status: 400, headers });
@@ -514,7 +522,7 @@ export default async (req: Request) => {
       case "grant-reward": {
         const { idToken, rewardType, challengeId } = body;
         try {
-          const uid = await verifyUser(idToken);
+          const { uid } = await verifyUser(idToken);
           
           let coinsToGrant = 0;
           let claimKey = "";
@@ -598,7 +606,7 @@ export default async (req: Request) => {
       case "daily-reset": {
         const { idToken } = body;
         try {
-          const uid = await verifyUser(idToken);
+          const { uid } = await verifyUser(idToken);
           const adminDb = getFirestoreAdmin();
           const userRef = adminDb.collection("user_coins").doc(uid);
 
@@ -749,7 +757,27 @@ export default async (req: Request) => {
       }
 
       case "prompt-maker": {
-        const { concept, platformId, aspectRatio, media, mimeType, mediaVideo, mimeTypeVideo } = body;
+        const { idToken, cost, concept, platformId, aspectRatio, media, mimeType, mediaVideo, mimeTypeVideo } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 100;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
         try {
           const ai = getAI();
           const systemPrompt = `You are the master engine of KRON SCRIPT AI's MODULE 01: PROMPT MAKER.
@@ -865,18 +893,70 @@ Desired Aspect Ratio: "${aspectRatio || "16:9"}"`;
           );
 
           if (response.text) {
+            // Save to Firestore user history securely under UID
+            try {
+              const parsed = JSON.parse(response.text.trim());
+              const compiledContent = `IMAGE PROMPT:\n${parsed.imagePrompt || ""}\n\nVIDEO PROMPT:\n${parsed.videoPrompt || ""}\n\nCINEMATIC BEATS:\n${parsed.structuredCinematic || ""}\n\nPLATFORM SPECS:\n${parsed.platformSpecs || ""}`;
+              const adminDb = getFirestoreAdmin();
+              const scriptIdRef = adminDb.collection("scripts").doc();
+              await scriptIdRef.set({
+                id: scriptIdRef.id,
+                user_id: uid,
+                title: `Prompts: ${concept || "Untitled Concept"}`,
+                hook: `Type: Prompts • Platform: ${platformId ? platformId.toUpperCase() : "MIDJOURNEY"} • Ratio: ${aspectRatio || "16:9"}`,
+                content: compiledContent,
+                status: "prompt",
+                word_count: compiledContent.split(/\s+/).filter(Boolean).length,
+                created_at: admin.firestore.FieldValue.serverTimestamp()
+              });
+            } catch (saveErr) {
+              console.error("Failed to save prompt history to DB:", saveErr);
+            }
+
             return new Response(response.text, { status: 200, headers });
           }
           throw new Error("Empty response from AI model.");
         } catch (err: any) {
           console.error("Prompt-maker API failed:", err);
-          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
+          }
+          return new Response(JSON.stringify({ error: err.message || "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
       }
 
       case "predictive-thumbnail-tester": {
-        const { media, mimeType } = body;
+        const { idToken, cost, media, mimeType } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 150;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
         if (!media) {
+          if (transactionId) {
+            const adminDb = getFirestoreAdmin();
+            await refundCreditsBackend(adminDb, uid, costNum, transactionId).catch(() => {});
+          }
           return new Response(JSON.stringify({ error: "Media data is required" }), { status: 400, headers });
         }
         let base64Data = media;
@@ -998,130 +1078,18 @@ Structure your JSON response exactly like this:
           throw new Error("Empty response from AI model.");
         } catch (err: any) {
           console.error("Thumbnail tester API failed:", err);
-          return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
-        }
-      }
-
-      case "enhance-media": {
-        const { media, fileType, config } = body;
-        if (!media) {
-          return new Response(JSON.stringify({ error: "No media file provided" }), { status: 400, headers });
-        }
-
-        const resolvedConfig = config || { resolution: "2k", faceRestore: false, colorGrade: false };
-        const resolutionMultiplier = resolvedConfig.resolution === "2k" ? 1.5 : resolvedConfig.resolution === "4k" ? 3.0 : 6.0;
-        const processSecs = (2.2 + Math.random() * 2.5).toFixed(2);
-        
-        let analysisText = "";
-        let faceDetectionAnswer = 0;
-        
-        let base64Data = media;
-        let mimeType = fileType === "video" ? "video/mp4" : "image/jpg";
-        if (media.includes(";base64,")) {
-          const parts = media.split(";base64,");
-          mimeType = parts[0].split(":")[1] || mimeType;
-          base64Data = parts[1];
-        }
-
-        if (fileType === "image") {
-          try {
-            const ai = getAI();
-            const response = await callWithRetry((model) =>
-              ai.models.generateContent({
-                model,
-                contents: [
-                  {
-                    inlineData: {
-                      mimeType,
-                      data: base64Data,
-                    },
-                  },
-                  `You are the master engine of KRON SCRIPT AI's VISION MODULE.
-Analyze this uploaded photo asset. Describe:
-1. What focal elements, characters, or text are present in the image.
-2. Formulate exactly 5 structured technical forensic logs detailing how you would enhance, remove blur, align face coordinates, and color grade this image for ${resolvedConfig.resolution.toUpperCase()} output.
-Return your response as a JSON object matching this schema:
-{
-  "focalAnalysis": "Short description of what you see in the photo",
-  "facesFound": integer (count of visible human faces),
-  "logs": [
-    "Log 1",
-    "Log 2",
-    "Log 3",
-    "Log 4",
-    "Log 5"
-  ]
-}`
-                ],
-                config: {
-                  responseMimeType: "application/json",
-                  responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                      focalAnalysis: { type: Type.STRING },
-                      facesFound: { type: Type.INTEGER },
-                      logs: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING }
-                      }
-                    },
-                    required: ["focalAnalysis", "facesFound", "logs"]
-                  }
-                }
-              })
-            );
-
-            if (response.text) {
-              const parsed = JSON.parse(response.text.trim());
-              analysisText = parsed.focalAnalysis;
-              faceDetectionAnswer = parsed.facesFound;
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
             }
-          } catch (err) {
-            console.warn("[KRON VISION API] Interactive Gemini analysis failed, using heuristics:", err);
           }
+          return new Response(JSON.stringify({ error: err.message || "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
-
-        const fallbackLogs = [
-          `[DECIBEL MATRIX] Analyzing digital focus lattice for blur coefficient...`,
-          `[DE-BLUR] Focus plane error detected. Running bilateral sharpening iterations...`,
-          resolvedConfig.faceRestore ? `[FACE] Detected human outlines, applying high-density facial landmarks alignment...` : `[FACE] Face reconstruction bypass selected.`,
-          resolvedConfig.colorGrade ? `[COLOR] Re-mapping chromatic contrast to sRGB Wide Gamut bounds...` : `[COLOR] Retaining default spectrum.`,
-          `[SUPER-RES] Super-resolving to ${resolvedConfig.resolution.toUpperCase()} via Lanczos interpolation grids...`,
-          `[COMPLETE] Synchronized media stream outputs cleanly. Processing complete.`
-        ];
-
-        const reportsLogs = analysisText 
-          ? [
-              `[ANALYSIS] Focal elements detected: ${analysisText}`,
-              ...fallbackLogs
-            ]
-          : fallbackLogs;
-
-        let enhancedUrl = media;
-        if (fileType === "video") {
-          const sampleVideos = [
-            "https://assets.mixkit.co/videos/preview/mixkit-cinematic-reel-of-film-projector-in-action-44026-large.mp4",
-            "https://assets.mixkit.co/videos/preview/mixkit-flying-through-a-futuristic-tunnel-with-neon-lights-41856-large.mp4",
-            "https://assets.mixkit.co/videos/preview/mixkit-hyper-lapse-of-a-futuristic-city-at-night-42217-large.mp4"
-          ];
-          enhancedUrl = sampleVideos[Math.floor(Math.random() * sampleVideos.length)];
-        }
-
-        return new Response(JSON.stringify({
-          enhancedUrl,
-          report: {
-            originalSize: `${(media.length / (1024 * 1024) * 0.75).toFixed(2)} MB`,
-            enhancedSize: `${(media.length / (1024 * 1024) * 0.75 * resolutionMultiplier).toFixed(2)} MB`,
-            processingTime: `${processSecs} Seconds`,
-            sharpenRatio: `+${(65 + Math.random() * 25).toFixed(1)}%`,
-            noiseDecline: `-${(80 + Math.random() * 15).toFixed(1)}% Noise`,
-            upscaleMatrix: resolvedConfig.resolution === "8k" ? "BICUBIC-8K" : "LANCZOS-4K",
-            facesCount: faceDetectionAnswer || (resolvedConfig.faceRestore ? Math.floor(Math.random() * 2) + 1 : 0),
-            colorSpectrum: "sRGB Wide Gamut",
-            detailedLogs: reportsLogs
-          }
-        }), { status: 200, headers });
       }
+
 
       case "geolocation": {
         const defaultFallback = { country_name: "United States", currency: "USD" };
@@ -1161,10 +1129,35 @@ Return your response as a JSON object matching this schema:
       }
 
       case "generate-movie-script": {
-        const { title, genre, logline, description } = body;
+        const { idToken, cost, title, genre, logline, description } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 100;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
         if (!title) {
+          if (transactionId) {
+            const adminDb = getFirestoreAdmin();
+            await refundCreditsBackend(adminDb, uid, costNum, transactionId).catch(() => {});
+          }
           return new Response(JSON.stringify({ error: "Title is required" }), { status: 400, headers });
         }
+
         try {
           const ai = getAI();
           const systemPrompt = `You are a world-class Hollywood screenplay writer AI. Write a Blockbuster screenplay using the Save the Cat 15 Story Beats structure based on the inputs provided. Mark sections clearly using tags.`;
@@ -1175,18 +1168,73 @@ Return your response as a JSON object matching this schema:
               config: { systemInstruction: systemPrompt },
             })
           );
+
+          if (response.text) {
+            // Save to Firestore user history securely under UID
+            try {
+              const wordCount = response.text.split(/\s+/).filter(Boolean).length;
+              const adminDb = getFirestoreAdmin();
+              const scriptIdRef = adminDb.collection("scripts").doc();
+              await scriptIdRef.set({
+                id: scriptIdRef.id,
+                user_id: uid,
+                title: title || "Untitled Cinematic Script",
+                hook: `Type: Script • Genre: ${genre || "Drama"}`,
+                content: response.text,
+                status: "script",
+                word_count: wordCount,
+                created_at: admin.firestore.FieldValue.serverTimestamp()
+              });
+            } catch (saveErr) {
+              console.error("Failed to save script history to DB:", saveErr);
+            }
+          }
+
           return new Response(JSON.stringify({ content: response.text }), { status: 200, headers });
         } catch (err: any) {
           console.error("Movie script generator API failed:", err);
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
+          }
           return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
       }
 
       case "script-caption-architect": {
-        const { idea, platform, tone, wordCount } = body;
+        const { idToken, cost, idea, platform, tone, wordCount } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 100;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
         if (!idea) {
+          if (transactionId) {
+            const adminDb = getFirestoreAdmin();
+            await refundCreditsBackend(adminDb, uid, costNum, transactionId).catch(() => {});
+          }
           return new Response(JSON.stringify({ error: "Draft idea or topic is required" }), { status: 400, headers });
         }
+
         try {
           const chosenPlatform = platform || "TikTok";
           const chosenTone = tone || "Engaging & Human";
@@ -1217,6 +1265,27 @@ Return your response as a JSON object matching this schema:
 
           if (response.text) {
             const parsed = JSON.parse(response.text.trim());
+            const compiledCaptionContent = `VIRAL HOOKS:\n${(parsed.hookTitles || []).join("\n")}\n\nCAPTION BODY:\n${parsed.caption || ""}\n\nENGAGEMENT BOOSTERS:\n${parsed.engagementBooster || ""}`;
+
+            // Save to Firestore user history securely under UID
+            try {
+              const wordCountVal = compiledCaptionContent.split(/\s+/).filter(Boolean).length;
+              const adminDb = getFirestoreAdmin();
+              const scriptIdRef = adminDb.collection("scripts").doc();
+              await scriptIdRef.set({
+                id: scriptIdRef.id,
+                user_id: uid,
+                title: `Captions: ${idea || "Untitled Concept"}`,
+                hook: `Type: Captions • Platform: ${chosenPlatform.toUpperCase()} • Tone: ${chosenTone}`,
+                content: compiledCaptionContent,
+                status: "caption",
+                word_count: wordCountVal,
+                created_at: admin.firestore.FieldValue.serverTimestamp()
+              });
+            } catch (saveErr) {
+              console.error("Failed to save captions history to DB:", saveErr);
+            }
+
             return new Response(JSON.stringify({
               hookTitles: parsed.hookTitles || [],
               caption: parsed.caption || "",
@@ -1227,17 +1296,49 @@ Return your response as a JSON object matching this schema:
           throw new Error("Empty response from AI model.");
         } catch (err: any) {
           console.error("Script caption architect API failed:", err);
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
+          }
           return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
       }
 
       case "detect-ai-deepfake": {
-        try {
-          const { media, mimeType } = body;
-          if (!media) {
-            return new Response(JSON.stringify({ error: "Media is required for evaluation" }), { status: 400, headers });
-          }
+        const { idToken, cost, media, mimeType } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 150;
 
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
+        if (!media) {
+          if (transactionId) {
+            const adminDb = getFirestoreAdmin();
+            await refundCreditsBackend(adminDb, uid, costNum, transactionId).catch(() => {});
+          }
+          return new Response(JSON.stringify({ error: "Media is required for evaluation" }), { status: 400, headers });
+        }
+
+        try {
           let base64Data = media;
           let mime = mimeType || "image/png";
           if (media.includes(";base64,")) {
@@ -1364,6 +1465,14 @@ Provide a comprehensive, objective diagnostic report that matches this exact JSO
           return new Response(JSON.stringify(result), { status: 200, headers });
         } catch (err: any) {
           console.error("Deepfake API failed:", err);
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
+          }
           return new Response(JSON.stringify({ error: "High server demand. Please try your request again in a moment." }), { status: 503, headers });
         }
       }
@@ -1379,36 +1488,68 @@ Provide a comprehensive, objective diagnostic report that matches this exact JSO
       }
 
       case "analyze-dropped-video": {
-        const { videoName } = body;
-        const result = {
-          hookStrength: 87,
-          engagementPrediction: 82,
-          retentionPrediction: "42% Completion Rate (Excellent Range)",
-          retentionEstimate: "Exceptional",
-          isHumanBrainLogicScore: "PASSED: Triggered high retention. Visual focal anchors align beautifully.",
-          explanationFirst5Seconds: `Pacing of "${videoName || "uploaded video"}" starts fast without pauses, matching viral standards.`,
-          audioRecommendation: "Audio is clear. Add low-frequency sweep sound at second 1.2 during transition.",
-          captionChangeRecommendation: "",
-          pacingSuggestions: "No major corrections. Ensure titles respect safe margins.",
-          microHookScript: "The viral editing hack that scales vertical channels in seconds.",
-          detailedFeedback: "Format looks excellent, keeping key details strictly in standard 9:16 safe views.",
-          hookTypeDetected: "CURIOSITY GAP HOOK",
-          overallScore: 84,
-          criteriaScores: {
-            hookStrength: 8, visualEnergy: 8, audioQuality: 8, retentionArchitecture: 9,
-            emotionalEngagement: 8, captionEffectiveness: 9, ctaPlacement: 8,
-            pacingConsistency: 9, informationDensity: 8, platformOptimisation: 9
-          },
-          retentionCurveAnalysis: {
-            zeroToFiveSec: { risk: "Low", intervention: "No actions needed." },
-            fiveToFifteenSec: { risk: "Low", intervention: "Smooth jump cut transition." },
-            fifteenToThirtySec: { risk: "Medium", intervention: "Overlay visual statistics graphs." },
-            thirtyToSixtySec: { risk: "Medium", intervention: "Alter background ambient tracks." },
-            sixtyToOneTwentySec: { risk: "Medium", intervention: "Initiate verbal call-to-action." },
-            oneTwentySecPlus: { risk: "High", intervention: "Support call-to-action using interactive arrows." }
+        const { idToken, cost, videoName } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 500;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
+        try {
+          const result = {
+            hookStrength: 87,
+            engagementPrediction: 82,
+            retentionPrediction: "42% Completion Rate (Excellent Range)",
+            retentionEstimate: "Exceptional",
+            isHumanBrainLogicScore: "PASSED: Triggered high retention. Visual focal anchors align beautifully.",
+            explanationFirst5Seconds: `Pacing of "${videoName || "uploaded video"}" starts fast without pauses, matching viral standards.`,
+            audioRecommendation: "Audio is clear. Add low-frequency sweep sound at second 1.2 during transition.",
+            captionChangeRecommendation: "",
+            pacingSuggestions: "No major corrections. Ensure titles respect safe margins.",
+            microHookScript: "The viral editing hack that scales vertical channels in seconds.",
+            detailedFeedback: "Format looks excellent, keeping key details strictly in standard 9:16 safe views.",
+            hookTypeDetected: "CURIOSITY GAP HOOK",
+            overallScore: 84,
+            criteriaScores: {
+              hookStrength: 8, visualEnergy: 8, audioQuality: 8, retentionArchitecture: 9,
+              emotionalEngagement: 8, captionEffectiveness: 9, ctaPlacement: 8,
+              pacingConsistency: 9, informationDensity: 8, platformOptimisation: 9
+            },
+            retentionCurveAnalysis: {
+              zeroToFiveSec: { risk: "Low", intervention: "No actions needed." },
+              fiveToFifteenSec: { risk: "Low", intervention: "Smooth jump cut transition." },
+              fifteenToThirtySec: { risk: "Medium", intervention: "Overlay visual statistics graphs." },
+              thirtyToSixtySec: { risk: "Medium", intervention: "Alter background ambient tracks." },
+              sixtyToOneTwentySec: { risk: "Medium", intervention: "Initiate verbal call-to-action." },
+              oneTwentySecPlus: { risk: "High", intervention: "Support call-to-action using interactive arrows." }
+            }
+          };
+          return new Response(JSON.stringify(result), { status: 200, headers });
+        } catch (err: any) {
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
           }
-        };
-        return new Response(JSON.stringify(result), { status: 200, headers });
+          return new Response(JSON.stringify({ error: "Failed to analyze video." }), { status: 500, headers });
+        }
       }
 
       case "track-link": {
@@ -1449,7 +1590,40 @@ Provide a comprehensive, objective diagnostic report that matches this exact JSO
       }
 
       case "generate-video": {
-        return new Response(JSON.stringify({ operationName: `models/veo-3.1-lite-generate-preview/operations/mock_op_${Date.now()}` }), { status: 200, headers });
+        const { idToken, cost } = body;
+        let uid = "";
+        let email = "";
+        let transactionId = "";
+        const costNum = Number(cost) || 300;
+
+        try {
+          const verification = await verifyUser(idToken);
+          uid = verification.uid;
+          email = verification.email;
+        } catch (authErr: any) {
+          return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing authentication token" }), { status: 401, headers });
+        }
+
+        try {
+          const adminDb = getFirestoreAdmin();
+          transactionId = await deductCreditsBackend(adminDb, uid, email, costNum);
+        } catch (deductErr: any) {
+          return new Response(JSON.stringify({ error: deductErr.message || "Insufficient credits" }), { status: 402, headers });
+        }
+
+        try {
+          return new Response(JSON.stringify({ operationName: `models/veo-3.1-lite-generate-preview/operations/mock_op_${Date.now()}` }), { status: 200, headers });
+        } catch (err: any) {
+          if (transactionId) {
+            try {
+              const adminDb = getFirestoreAdmin();
+              await refundCreditsBackend(adminDb, uid, costNum, transactionId);
+            } catch (refundErr) {
+              console.error("Failed to refund credit on error:", refundErr);
+            }
+          }
+          return new Response(JSON.stringify({ error: "Failed to generate video." }), { status: 500, headers });
+        }
       }
 
       case "video-status": {

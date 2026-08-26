@@ -41,7 +41,8 @@ import {
   serverTimestamp,
   onSnapshot,
   handleFirestoreError,
-  OperationType
+  OperationType,
+    secureRefundCredits
 } from "@/src/lib/firebase";
 
 type MovieScript = {
@@ -201,7 +202,11 @@ export default function DashboardMovieScript() {
       const resp = await fetch("/api/generate-movie-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, genre, logline }),
+        body: JSON.stringify({ 
+          title, genre, logline,
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: 15
+        }),
       });
 
       if (!resp.ok) {
@@ -223,12 +228,16 @@ export default function DashboardMovieScript() {
       });
 
       // Update script metrics on the user_coins document to track the daily quotas
-      const coinsRef = doc(db, "user_coins", user.uid);
-      const nextCount = shouldResetCount ? 1 : (currentCount + 1);
-      await setDoc(coinsRef, {
-        scripts_today_count: nextCount,
-        last_script_generate_time: now,
-      }, { merge: true });
+      try {
+        const coinsRef = doc(db, "user_coins", user.uid);
+        const nextCount = shouldResetCount ? 1 : (currentCount + 1);
+        await setDoc(coinsRef, {
+          scripts_today_count: nextCount,
+          last_script_generate_time: now,
+        }, { merge: true });
+      } catch (metricsErr) {
+        console.warn("Failed to update script metrics locally:", metricsErr);
+      }
 
       const newScript: MovieScript = {
         id: docRef.id,
@@ -296,46 +305,24 @@ export default function DashboardMovieScript() {
     setIsGeneratingVideo(true);
     toast.info(`Initializing Veo 3.1 engine... deducting ${cost} KRON coins.`);
 
-    let transactionId = "";
     try {
-      // 1. Deduct coins via secure server-side transaction
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error("Could not acquire identity credentials.");
-      const consumeResp = await fetch("/api/consume-credits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, cost }),
-      });
-
-      if (!consumeResp.ok) {
-        const consumeErr = await consumeResp.json().catch(() => ({}));
-        throw new Error(consumeErr.error || "Failed to authorize credit deduction.");
-      }
-
-      const consumeData = await consumeResp.json();
-      transactionId = consumeData.transactionId;
-
-      // 2. Trigger Veo 3.1 video generator
+// 2. Trigger Veo 3.1 video generator
       const resp = await fetch("/api/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idToken: await auth.currentUser?.getIdToken(),
+          cost: cost,
           prompt: videoPrompt,
           duration: videoDuration,
           aspectRatio: videoAspectRatio,
-        }),
+        
+        })
       });
 
       if (!resp.ok) {
-        // Rollback coins on failure via secure server-side transaction
-        if (transactionId) {
-          await fetch("/api/refund-credits", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken, transactionId }),
-          }).catch(err => console.warn("Refund failed:", err));
-        }
-        throw new Error("Veo 3.1 API engine offline or busy. Coins refunded.");
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || "Veo 3.1 API engine offline or busy.");
       }
 
       const data = await resp.json();

@@ -5,7 +5,6 @@ export const MAINTENANCE_CONFIG = {
   tools: {
     promptMaker: false,     // Prompt Maker in Creator Toolkit
     movieScript: false,     // Movie Script / Blockbuster Workspace
-    visionAi: false,        // Vision AI Workspace
     images: false,          // AI Image Studio
     video: false,           // Video tools in Creator Toolkit
     thumbnail: false,       // Thumbnail analyzer in Creator Toolkit
