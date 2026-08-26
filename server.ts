@@ -10,7 +10,7 @@ dotenv.config();
 // Helper to get the active API Key - with fallback to the user's explicit key
 function getAPIKey(): string {
   const key = process.env.GEMINI_API_KEY;
-  if (!key || key === "MY_GEMINI_API_KEY" || key === "MOCK_KEY" || key === "undefined" || key === "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
+  if (!key || key === "MY_GEMINI_API_KEY" || key === "MOCK_KEY" || key === "undefined") {
     return "";
   }
   return key;

@@ -186,10 +186,17 @@ async function getUserCoinsRest(idToken: string, uid: string): Promise<any> {
 }
 
 async function saveUserCoinsRest(idToken: string, uid: string, data: any): Promise<any> {
-  const url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/${firebaseDatabaseId}/documents/user_coins/${uid}`;
+  let url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/${firebaseDatabaseId}/documents/user_coins/${uid}`;
   const payloadData = { ...data };
   delete payloadData.id;
   delete payloadData.user_id;
+
+  const keys = Object.keys(payloadData);
+  if (keys.length > 0) {
+    const queryParams = keys.map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
+    url += `?${queryParams}`;
+  }
+
   payloadData.user_id = uid;
   payloadData.id = uid;
 
@@ -486,7 +493,7 @@ function generateRssXml(baseUrl: string, blogs: any[]) {
 // Get Active Secret API Key
 function getAPIKey(): string {
   const envKey = process.env.GEMINI_API_KEY;
-  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "" && envKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
+  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "") {
     return envKey;
   }
   return "";

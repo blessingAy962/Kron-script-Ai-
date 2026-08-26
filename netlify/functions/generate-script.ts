@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 // Get Active Secret API Key
 function getAPIKey(): string {
   const envKey = process.env.GEMINI_API_KEY;
-  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "" && envKey !== "AIzaSyAdskHo0Fd5GgTEdcyiRr1QVPbuMmSbkPY") {
+  if (envKey && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MOCK_KEY" && envKey !== "undefined" && envKey.trim() !== "") {
     return envKey;
   }
   return "";
