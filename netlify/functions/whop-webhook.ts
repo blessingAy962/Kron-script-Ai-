@@ -1,4 +1,7 @@
-import * as admin from "firebase-admin";
+import * as adminNamespace from "firebase-admin";
+const admin = (adminNamespace as any).initializeApp 
+  ? (adminNamespace as any) 
+  : ((adminNamespace as any).default || adminNamespace);
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as crypto from "crypto";
 import * as fs from "fs";

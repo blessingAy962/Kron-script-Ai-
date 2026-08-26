@@ -1,5 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import * as admin from "firebase-admin";
+import * as adminNamespace from "firebase-admin";
+const admin = (adminNamespace as any).initializeApp 
+  ? (adminNamespace as any) 
+  : ((adminNamespace as any).default || adminNamespace);
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as fs from "fs";
 import * as path from "path";
@@ -45,7 +48,7 @@ function getFirestoreAdmin() {
   return getFirestore(firebaseDatabaseId);
 }
 
-let authApp: admin.app.App;
+let authApp: any;
 function getAuthApp() {
   const existingAuthApp = (admin.apps || []).find(app => app?.name === "authApp");
   if (existingAuthApp) {

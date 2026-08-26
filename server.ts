@@ -170,7 +170,10 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Initialize Firebase Admin SDK for secure server-side transactions
-import admin from "firebase-admin";
+import adminNamespace from "firebase-admin";
+const admin = (adminNamespace as any).initializeApp 
+  ? (adminNamespace as any) 
+  : ((adminNamespace as any).default || adminNamespace);
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 let firebaseProjectId = "gen-lang-client-0666906949";
@@ -211,7 +214,7 @@ if (!(admin.apps || []).some(app => app?.name === "[DEFAULT]")) {
   }
 }
 
-let authApp: admin.app.App;
+let authApp: any;
 const existingAuthApp = (admin.apps || []).find(app => app?.name === "authApp");
 if (existingAuthApp) {
   authApp = existingAuthApp;
