@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
@@ -31,7 +32,7 @@ const TRUSTED_PLANS: Record<string, WhopPlanConfig> = {
 };
 
 function getFirestoreAdmin() {
-  if (!admin.apps.length) {
+  if (!(admin.apps || []).length) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (serviceAccountJson) {
       try {
@@ -55,7 +56,7 @@ function getFirestoreAdmin() {
       });
     }
   }
-  return admin.firestore(firebaseDatabaseId);
+  return getFirestore(firebaseDatabaseId);
 }
 
 const headers = {
@@ -221,7 +222,7 @@ export default async (req: Request) => {
 
       // Atomically mark webhook as processed to prevent replay/duplicate deliveries
       transaction.set(webhookRef, {
-        processed_at: admin.firestore.FieldValue.serverTimestamp(),
+        processed_at: FieldValue.serverTimestamp(),
         userId,
         planId,
         coinsAdded: coinsToAdd
@@ -233,7 +234,7 @@ export default async (req: Request) => {
         plan: planId,
         plan_status: "active",
         is_premium: true,
-        license_acquired_at: admin.firestore.FieldValue.serverTimestamp()
+        license_acquired_at: FieldValue.serverTimestamp()
       }, { merge: true });
 
       return { alreadyProcessed: false };

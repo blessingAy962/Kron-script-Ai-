@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import * as admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -19,7 +19,7 @@ try {
 }
 
 function getFirestoreAdmin() {
-  if (!admin.apps.some(app => app?.name === "[DEFAULT]")) {
+  if (!(admin.apps || []).some(app => app?.name === "[DEFAULT]")) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (serviceAccountJson) {
       try {
@@ -47,7 +47,7 @@ function getFirestoreAdmin() {
 
 let authApp: admin.app.App;
 function getAuthApp() {
-  const existingAuthApp = admin.apps.find(app => app?.name === "authApp");
+  const existingAuthApp = (admin.apps || []).find(app => app?.name === "authApp");
   if (existingAuthApp) {
     authApp = existingAuthApp;
   } else {
@@ -269,7 +269,7 @@ async function deductCreditsBackend(adminDb: any, uid: string, email: string, co
           referral_count: 0,
           referred_emails: [],
           is_admin: isAdminEmail,
-          created_at: admin.firestore.FieldValue.serverTimestamp()
+          created_at: FieldValue.serverTimestamp()
         };
         transaction.set(userRef, userData);
       } else {
@@ -288,7 +288,7 @@ async function deductCreditsBackend(adminDb: any, uid: string, email: string, co
         userId: uid,
         cost: cost,
         status: "completed",
-        created_at: admin.firestore.FieldValue.serverTimestamp()
+        created_at: FieldValue.serverTimestamp()
       });
     });
 
@@ -350,7 +350,7 @@ async function refundCreditsBackend(adminDb: any, uid: string, cost: number, tra
       transaction.update(userRef, { coins: finalCoins });
       transaction.set(txRef, {
         status: "refunded",
-        refunded_at: admin.firestore.FieldValue.serverTimestamp()
+        refunded_at: FieldValue.serverTimestamp()
       }, { merge: true });
     });
     return finalCoins;
@@ -1244,7 +1244,7 @@ Desired Aspect Ratio: "${aspectRatio || "16:9"}"`;
                 content: compiledContent,
                 status: "prompt",
                 word_count: compiledContent.split(/\s+/).filter(Boolean).length,
-                created_at: admin.firestore.FieldValue.serverTimestamp()
+                created_at: FieldValue.serverTimestamp()
               });
             } catch (saveErr: any) {
               if (idToken && saveErr.message && (saveErr.message.includes("PERMISSION_DENIED") || saveErr.message.includes("permissions"))) {
@@ -1541,7 +1541,7 @@ Structure your JSON response exactly like this:
                 content: response.text,
                 status: "script",
                 word_count: wordCount,
-                created_at: admin.firestore.FieldValue.serverTimestamp()
+                created_at: FieldValue.serverTimestamp()
               });
             } catch (saveErr: any) {
               if (idToken && saveErr.message && (saveErr.message.includes("PERMISSION_DENIED") || saveErr.message.includes("permissions"))) {
@@ -1657,7 +1657,7 @@ Structure your JSON response exactly like this:
                 content: compiledCaptionContent,
                 status: "caption",
                 word_count: wordCountVal,
-                created_at: admin.firestore.FieldValue.serverTimestamp()
+                created_at: FieldValue.serverTimestamp()
               });
             } catch (saveErr: any) {
               if (idToken && saveErr.message && (saveErr.message.includes("PERMISSION_DENIED") || saveErr.message.includes("permissions"))) {

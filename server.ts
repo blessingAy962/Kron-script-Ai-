@@ -171,7 +171,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Initialize Firebase Admin SDK for secure server-side transactions
 import admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 let firebaseProjectId = "gen-lang-client-0666906949";
 let firebaseDatabaseId = "ai-studio-d937aa55-d9b3-4946-a19e-a80fd986d103";
@@ -187,7 +187,7 @@ try {
   console.error("Failed to load firebase-applet-config.json on server:", err);
 }
 
-if (!admin.apps.some(app => app?.name === "[DEFAULT]")) {
+if (!(admin.apps || []).some(app => app?.name === "[DEFAULT]")) {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (serviceAccountJson) {
     try {
@@ -212,7 +212,7 @@ if (!admin.apps.some(app => app?.name === "[DEFAULT]")) {
 }
 
 let authApp: admin.app.App;
-const existingAuthApp = admin.apps.find(app => app?.name === "authApp");
+const existingAuthApp = (admin.apps || []).find(app => app?.name === "authApp");
 if (existingAuthApp) {
   authApp = existingAuthApp;
 } else {
@@ -417,7 +417,7 @@ async function consumeUserCredits(idToken: string, cost: number, description: st
           referral_count: 0,
           referred_emails: [],
           is_admin: isAdminEmail,
-          created_at: admin.firestore.FieldValue.serverTimestamp()
+          created_at: FieldValue.serverTimestamp()
         };
       } else {
         userData = userDoc.data() || {};
@@ -454,7 +454,7 @@ async function consumeUserCredits(idToken: string, cost: number, description: st
         transaction.set(userRef, userData);
       } else {
         updatePayload.coins = newCoins;
-        updatePayload.updated_at = admin.firestore.FieldValue.serverTimestamp();
+        updatePayload.updated_at = FieldValue.serverTimestamp();
         transaction.update(userRef, updatePayload);
       }
 
@@ -463,7 +463,7 @@ async function consumeUserCredits(idToken: string, cost: number, description: st
         user_id: uid,
         amount: -costNum,
         type: "consume",
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         description: description
       });
 
@@ -565,7 +565,7 @@ app.post("/api/consume-credits", async (req, res) => {
           referral_count: 0,
           referred_emails: [],
           is_admin: isAdminEmail,
-          created_at: admin.firestore.FieldValue.serverTimestamp()
+          created_at: FieldValue.serverTimestamp()
         };
         transaction.set(userRef, userData);
       } else {
@@ -585,7 +585,7 @@ app.post("/api/consume-credits", async (req, res) => {
         userId: uid,
         cost: costNum,
         status: "pending",
-        created_at: admin.firestore.FieldValue.serverTimestamp()
+        created_at: FieldValue.serverTimestamp()
       });
 
       return { updatedCoins, transactionId };
@@ -635,7 +635,7 @@ app.post("/api/refund-credits", async (req, res) => {
         const currentCoins = userDoc.exists ? (userDoc.data()?.coins ?? 150) : 150;
         const updatedCoins = currentCoins + txData.cost;
 
-        transaction.update(txRef, { status: "refunded", resolved_at: admin.firestore.FieldValue.serverTimestamp() });
+        transaction.update(txRef, { status: "refunded", resolved_at: FieldValue.serverTimestamp() });
         transaction.update(userRef, { coins: updatedCoins });
 
         return { updatedCoins };
@@ -720,7 +720,7 @@ app.post("/api/grant-reward", async (req, res) => {
             referral_count: 0,
             referred_emails: [],
             is_admin: isAdminEmail,
-            created_at: admin.firestore.FieldValue.serverTimestamp()
+            created_at: FieldValue.serverTimestamp()
           };
           transaction.set(userRef, data);
         } else {
@@ -840,7 +840,7 @@ app.post("/api/daily-reset", async (req, res) => {
             referral_count: 0,
             referred_emails: [],
             is_admin: isAdminEmail,
-            created_at: admin.firestore.FieldValue.serverTimestamp()
+            created_at: FieldValue.serverTimestamp()
           };
           transaction.set(userRef, data);
           return { success: true, coins: initialCoins, downgraded: false };
